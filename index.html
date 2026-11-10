@@ -3,23 +3,25 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex">
 <title>Nachtritme</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
 <style>
-/* Layout: smal apparaatpaneel links, de nacht (grafiek + cijfers) rechts; op telefoon onder elkaar.
+/* Layout: vaste bovenbalk met navigatie en bandstatus, daaronder één weergave tegelijk (start, slaap, stress, verleiding).
    Eén donker thema, bewust: dit scherm staat 's nachts naast je bed. */
 :root {
   color-scheme: dark;
-  --bg: #10131f;          /* nachtblauw */
+  --bg: #10131f;
   --panel: #181c2c;
   --panel-2: #20253a;
   --line: #2c3350;
-  --text: #e6e3da;        /* warm wit */
+  --text: #e6e3da;
   --muted: #9097b3;
   --lamp: #f0b45a;        /* accent: bedlampje */
   --pulse: #ef6f6c;       /* hartslag */
+  --flirt: #ff5c93;       /* verleidingsmeter */
   --deep: #5b6fd6;
   --light: #9db4f2;
   --wake: #f0b45a;
@@ -32,309 +34,500 @@
 }
 * { box-sizing: border-box; }
 html, body { margin: 0; }
-body {
-  background: var(--bg); color: var(--text);
-  font: 400 15px/1.5 var(--body);
-  padding: 20px 16px 48px;
-}
-.wrap { max-width: 1080px; margin: 0 auto; display: grid; gap: 20px; }
-header { display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px 16px; }
-h1 { font: 700 28px/1.1 var(--display); margin: 0; letter-spacing: -0.01em; }
+body { background: var(--bg); color: var(--text); font: 400 15px/1.5 var(--body); padding: 16px 16px 48px; }
+[hidden] { display: none !important; }
+.wrap { max-width: 1080px; margin: 0 auto; display: grid; gap: 18px; }
+h1 { font: 700 24px/1.1 var(--display); margin: 0; letter-spacing: -0.01em; }
 h1 span { color: var(--lamp); }
-header p { margin: 0; color: var(--muted); }
 h2 { font: 700 18px/1.2 var(--display); margin: 0; text-wrap: balance; }
 h3 { font: 600 12px/1.2 var(--body); margin: 0; color: var(--muted); text-transform: uppercase; letter-spacing: .08em; }
-.grid { display: grid; grid-template-columns: 300px minmax(0, 1fr); gap: 20px; align-items: start; }
-@media (max-width: 820px) { .grid { grid-template-columns: minmax(0, 1fr); } }
-.panel { background: var(--panel); border: 1px solid var(--line); border-radius: 14px; padding: 18px; display: grid; gap: 16px; }
+p { margin: 0; }
 .num { font-family: var(--mono); font-variant-numeric: tabular-nums; }
+.note { font-size: 13px; color: var(--muted); max-width: 68ch; }
+.panel { background: var(--panel); border: 1px solid var(--line); border-radius: 14px; padding: 18px; display: grid; gap: 16px; min-width: 0; }
+.cols { display: grid; grid-template-columns: 300px minmax(0, 1fr); gap: 18px; align-items: start; }
+@media (max-width: 820px) { .cols { grid-template-columns: minmax(0, 1fr); } }
+.stack { display: grid; gap: 18px; min-width: 0; }
+.row { display: flex; flex-wrap: wrap; gap: 8px 12px; align-items: center; }
+.between { justify-content: space-between; }
 
-/* knoppen */
-button {
-  font: 600 14px/1 var(--body); color: var(--text);
-  background: var(--panel-2); border: 1px solid var(--line); border-radius: 10px;
-  padding: 11px 14px; cursor: pointer;
+button, select, input[type=text], input[type=password] {
+  font: 500 14px/1.2 var(--body); color: var(--text);
+  background: var(--panel-2); border: 1px solid var(--line); border-radius: 10px; padding: 10px 13px;
 }
+button { font-weight: 600; cursor: pointer; }
 button:hover:not(:disabled) { border-color: var(--muted); }
-button:focus-visible, a:focus-visible, .night:focus-visible { outline: 2px solid var(--lamp); outline-offset: 2px; }
+button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible { outline: 2px solid var(--lamp); outline-offset: 2px; }
 button:disabled { opacity: .45; cursor: not-allowed; }
 button.primary { background: var(--lamp); color: #1b1407; border-color: var(--lamp); }
+button.hot { background: var(--flirt); color: #2a0714; border-color: var(--flirt); }
 button.stop { background: transparent; border-color: var(--pulse); color: var(--pulse); }
 button.ghost { background: transparent; padding: 7px 10px; font-weight: 500; color: var(--muted); }
-.btns { display: grid; gap: 8px; }
+button[aria-pressed="true"] { border-color: var(--flirt); color: var(--flirt); }
+label.f { display: grid; gap: 5px; font-size: 13px; color: var(--muted); }
+input[type=text], input[type=password] { width: 100%; }
 
-/* status */
-.pill { display: inline-flex; align-items: center; gap: 7px; padding: 4px 10px; border-radius: 99px;
-  font: 500 12.5px/1.3 var(--body); border: 1px solid var(--line); color: var(--muted); }
-.pill::before { content: ""; width: 8px; height: 8px; border-radius: 50%; background: var(--muted); }
-.pill.ok { color: var(--ok); border-color: color-mix(in srgb, var(--ok) 45%, transparent); }
-.pill.ok::before { background: var(--ok); }
-.pill.warn { color: var(--warn); border-color: color-mix(in srgb, var(--warn) 45%, transparent); }
-.pill.warn::before { background: var(--warn); }
-.pill.rec { color: var(--pulse); border-color: color-mix(in srgb, var(--pulse) 45%, transparent); }
-.pill.rec::before { background: var(--pulse); animation: blink 1.6s infinite; }
+.pill { display: inline-flex; align-items: center; gap: 7px; padding: 4px 10px; border-radius: 99px; font: 500 12.5px/1.3 var(--body); border: 1px solid var(--line); color: var(--muted); white-space: nowrap; }
+.pill::before { content: ""; width: 8px; height: 8px; border-radius: 50%; background: currentColor; }
+.pill.ok { color: var(--ok); } .pill.warn { color: var(--warn); } .pill.rec { color: var(--pulse); }
+.pill.rec::before { animation: blink 1.6s infinite; }
 @keyframes blink { 50% { opacity: .25; } }
 @media (prefers-reduced-motion: reduce) { .pill.rec::before { animation: none; } }
+.alert { border: 1px solid color-mix(in srgb, var(--bad) 50%, transparent); background: color-mix(in srgb, var(--bad) 10%, transparent); border-radius: 10px; padding: 10px 12px; font-size: 13.5px; }
+.hint { border: 1px solid color-mix(in srgb, var(--lamp) 50%, transparent); background: color-mix(in srgb, var(--lamp) 10%, transparent); border-radius: 10px; padding: 10px 12px; font-size: 13.5px; }
+.tag { font: 600 11px/1 var(--body); letter-spacing: .08em; text-transform: uppercase; color: #1b1407; background: var(--lamp); padding: 4px 7px; border-radius: 5px; }
 
-.live { display: flex; align-items: baseline; gap: 8px; }
-.live .bpm { font: 500 64px/1 var(--mono); font-variant-numeric: tabular-nums; color: var(--pulse); }
-.live .unit { color: var(--muted); }
+/* slot */
+.gate { min-height: 80vh; display: grid; place-content: center; }
+.gate form { width: min(340px, 100%); display: grid; gap: 14px; }
+.gate .chk { display: flex; gap: 8px; align-items: center; font-size: 13.5px; color: var(--muted); }
+
+/* bovenbalk */
+.top { display: flex; flex-wrap: wrap; gap: 10px 18px; align-items: center; justify-content: space-between; }
+nav { display: flex; flex-wrap: wrap; gap: 4px; }
+nav a { color: var(--muted); text-decoration: none; padding: 7px 11px; border-radius: 8px; font-weight: 500; }
+nav a[aria-current="page"] { background: var(--panel-2); color: var(--text); }
+.conn { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
+.conn .bpm { font: 500 20px/1 var(--mono); color: var(--pulse); min-width: 3ch; text-align: right; }
+
+/* start */
+.cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); gap: 14px; }
+a.card { display: grid; gap: 8px; align-content: start; text-decoration: none; color: inherit; background: var(--panel); border: 1px solid var(--line); border-top: 3px solid var(--c); border-radius: 14px; padding: 18px; }
+a.card:hover { border-color: var(--c); }
+a.card .go { color: var(--c); font-weight: 600; font-size: 13.5px; }
+a.card .st { font-size: 13px; color: var(--muted); }
 dl.facts { margin: 0; display: grid; grid-template-columns: auto 1fr; gap: 6px 14px; font-size: 13.5px; }
 dl.facts dt { color: var(--muted); }
 dl.facts dd { margin: 0; text-align: right; overflow-wrap: anywhere; }
-.note { margin: 0; font-size: 13px; color: var(--muted); }
-.alert { border: 1px solid color-mix(in srgb, var(--bad) 50%, transparent); background: color-mix(in srgb, var(--bad) 10%, transparent);
-  border-radius: 10px; padding: 10px 12px; font-size: 13.5px; }
-[hidden] { display: none !important; }
+code.out { display: block; background: #0b0d16; border: 1px solid var(--line); border-radius: 8px; padding: 10px; font: 12px/1.5 var(--mono); overflow-wrap: anywhere; user-select: all; }
 
-/* nacht */
-.nighthead { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; justify-content: space-between; }
-.nighthead .when { color: var(--muted); font-size: 13.5px; }
-.tag { font: 600 11px/1 var(--body); letter-spacing: .08em; text-transform: uppercase; color: #1b1407; background: var(--lamp); padding: 4px 7px; border-radius: 5px; }
+/* cijfers en grafieken */
 .tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(128px, 1fr)); gap: 10px; }
 .tile { background: var(--panel-2); border-radius: 10px; padding: 12px; display: grid; gap: 6px; align-content: start; }
 .tile .v { font: 500 24px/1.1 var(--mono); font-variant-numeric: tabular-nums; }
 .tile .v small { font-size: 13px; color: var(--muted); font-family: var(--body); }
 .tile .s { font-size: 12px; color: var(--muted); }
-#chart { position: relative; }
-#chart svg { display: block; width: 100%; height: auto; touch-action: pan-y; }
-#tip { position: absolute; top: 0; pointer-events: none; background: #0b0d16; border: 1px solid var(--line); border-radius: 8px;
-  padding: 5px 8px; font-size: 12.5px; white-space: nowrap; transform: translateX(-50%); }
+.chart { position: relative; }
+.chart svg { display: block; width: 100%; height: auto; touch-action: pan-y; }
+#tip { position: absolute; top: 0; pointer-events: none; background: #0b0d16; border: 1px solid var(--line); border-radius: 8px; padding: 5px 8px; font-size: 12.5px; white-space: nowrap; transform: translateX(-50%); }
 .legend { display: flex; flex-wrap: wrap; gap: 6px 16px; font-size: 12.5px; color: var(--muted); }
 .legend i { display: inline-block; width: 10px; height: 10px; border-radius: 3px; margin-right: 6px; vertical-align: -1px; }
 .split { display: flex; height: 12px; border-radius: 6px; overflow: hidden; background: var(--panel-2); }
 .split div { height: 100%; }
 .splitlabels { display: flex; flex-wrap: wrap; gap: 4px 18px; font-size: 13px; }
 .splitlabels b { font-weight: 500; font-family: var(--mono); }
+.list { display: grid; gap: 8px; }
+.item { display: grid; grid-template-columns: 1fr auto auto; gap: 12px; align-items: center; width: 100%; text-align: left; background: var(--panel-2); border: 1px solid transparent; border-radius: 10px; padding: 11px 12px; font-weight: 400; }
+.item[aria-current="true"] { border-color: var(--lamp); }
+.item .d { font-weight: 600; } .item .m { color: var(--muted); font-size: 13px; }
 
-/* lijst */
-.nights { display: grid; gap: 8px; }
-.night { display: grid; grid-template-columns: 1fr auto auto; gap: 12px; align-items: center; width: 100%; text-align: left;
-  background: var(--panel-2); border: 1px solid transparent; border-radius: 10px; padding: 11px 12px; font-weight: 400; }
-.night[aria-current="true"] { border-color: var(--lamp); }
-.night .d { font-weight: 600; }
-.night .m { color: var(--muted); font-size: 13px; }
-.rowact { display: flex; flex-wrap: wrap; gap: 8px; }
+/* stress */
+.gauge { display: grid; justify-items: center; gap: 2px; }
+.gauge svg { width: min(260px, 100%); height: auto; }
+.gauge .score { font: 500 52px/1 var(--mono); margin-top: -64px; }
+.gauge .zone { font: 600 15px/1.3 var(--display); min-height: 1.3em; }
+
+/* verleiding */
+.stage { position: relative; height: clamp(360px, 62vw, 540px); border-radius: 14px; overflow: hidden; background: #171a3a; border: 1px solid var(--line); }
+.stage:fullscreen { height: 100%; border-radius: 0; border: 0; }
+.stage canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
+.stage > div { position: absolute; left: 0; right: 0; padding: 14px 16px; display: flex; justify-content: space-between; gap: 12px; text-shadow: 0 1px 8px rgba(0,0,0,.55); }
+.st-top { top: 0; font-weight: 600; }
+.st-bot { bottom: 0; flex-direction: column; align-items: center; text-align: center; gap: 2px !important; }
+#flPct { font: 500 clamp(44px, 9vw, 72px)/1 var(--mono); }
+#flLabel { font: 700 clamp(18px, 3.4vw, 26px)/1.2 var(--display); }
+#flMsg { font-size: 13.5px; opacity: .85; min-height: 1.5em; }
+.board { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 10px; }
+.player { background: var(--panel-2); border: 1px solid transparent; border-radius: 10px; padding: 12px; display: grid; gap: 4px; }
+.player.cur { border-color: var(--flirt); }
+.player .nm { font: 700 16px/1.2 var(--display); overflow-wrap: anywhere; }
+.player .pk { font: 500 26px/1.1 var(--mono); }
+.fields { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px; align-items: end; }
 
 /* nachtstand */
 #dim { position: fixed; inset: 0; background: #000; color: #4a3a22; display: grid; place-content: center; gap: 10px; text-align: center; z-index: 10; cursor: pointer; }
-#dim .c { font: 500 44px/1 var(--mono); }
-#dim .h { font: 400 18px/1 var(--mono); }
-#dim .x { font-size: 12px; margin-top: 18px; }
+#dim .c { font: 500 44px/1 var(--mono); } #dim .h { font: 400 18px/1 var(--mono); } #dim .x { font-size: 12px; margin-top: 18px; }
 </style>
 </head>
 <body>
-<div class="wrap">
-  <header>
+
+<!-- slot -->
+<div class="gate" id="gate">
+  <form id="gateForm" autocomplete="off">
     <h1>Nacht<span>ritme</span></h1>
-    <p>Slaap bijhouden met je hartslagband</p>
+    <p class="note">Deze site is afgeschermd. Vul het wachtwoord in om verder te gaan.</p>
+    <label class="f" for="pw">Wachtwoord<input type="password" id="pw" autocomplete="current-password"></label>
+    <label class="chk" for="remember"><input type="checkbox" id="remember"> Onthoud mij op dit apparaat</label>
+    <button class="primary" type="submit">Ontgrendelen</button>
+    <div class="alert" id="gateErr" hidden></div>
+  </form>
+</div>
+
+<div class="wrap" id="app" hidden>
+  <header class="top">
+    <h1>Nacht<span>ritme</span></h1>
+    <nav aria-label="Onderdelen">
+      <a href="#start">Start</a><a href="#slaap">Slaap</a><a href="#stress">Stress</a><a href="#verleiding">Verleiding</a>
+    </nav>
+    <div class="conn">
+      <span class="pill rec" id="recPill" hidden>Slaapopname loopt</span>
+      <span class="pill" id="connPill">Niet verbonden</span>
+      <span class="bpm" id="bpm" title="Hartslag nu">––</span>
+      <button class="primary" id="btnConnect">Band verbinden</button>
+    </div>
   </header>
 
-  <div class="alert" id="nosupport" hidden>
-    Deze browser kan geen Bluetooth-apparaten bereiken. Open dit bestand in <strong>Chrome of Edge</strong> op Android, Windows, Mac of Linux. Op een iPhone of iPad werkt het alleen in de app Bluefy.
-  </div>
+  <div class="alert" id="nosupport" hidden>Deze browser kan geen Bluetooth-apparaten bereiken. Gebruik Chrome of Edge op Android, Windows, Mac of Linux, of de app Bluefy op een iPhone of iPad.</div>
+  <div class="alert" id="err" hidden></div>
 
-  <div class="grid">
-    <!-- apparaat -->
-    <section class="panel" aria-label="Hartslagband">
-      <div style="display:flex;flex-wrap:wrap;gap:8px">
-        <span class="pill" id="connPill">Niet verbonden</span>
-        <span class="pill rec" id="recPill" hidden>Opname loopt</span>
-      </div>
-      <div>
-        <h3>Hartslag nu</h3>
-        <div class="live"><span class="bpm" id="bpm">––</span><span class="unit">slagen/min</span></div>
-      </div>
-      <dl class="facts">
-        <dt>Band</dt><dd id="devName">–</dd>
-        <dt>Batterij</dt><dd id="devBat" class="num">–</dd>
-        <dt>Huidcontact</dt><dd id="devContact">–</dd>
-        <dt>HRV-gegevens</dt><dd id="devRR">–</dd>
-        <dt>Opname</dt><dd id="recDur" class="num">–</dd>
-      </dl>
-      <div class="btns">
-        <button class="primary" id="btnConnect">Band verbinden</button>
-        <button id="btnRec" disabled>Nacht starten</button>
-        <button id="btnDim" disabled>Scherm donker maken</button>
-      </div>
-      <div class="alert" id="err" hidden></div>
-      <p class="note">Laat dit tabblad 's nachts open en het apparaat aan de lader. Het scherm blijft aan zolang de opname loopt; met "Scherm donker maken" wordt het zwart. Valt de verbinding weg, dan verbindt de app zelf opnieuw.</p>
-    </section>
-
-    <!-- nacht -->
-    <div style="display:grid;gap:20px;min-width:0">
-      <section class="panel" aria-label="Nachtoverzicht">
-        <div class="nighthead">
-          <div>
-            <h2 id="nTitle">Nacht</h2>
-            <div class="when num" id="nWhen"></div>
-          </div>
-          <span class="tag" id="nTag" hidden>Voorbeeld</span>
-        </div>
-        <div class="tiles" id="tiles"></div>
-        <div id="chart"><div id="tip" hidden></div></div>
-        <div class="legend">
-          <span><i style="background:var(--pulse)"></i>Hartslag per minuut</span>
-          <span><i style="background:var(--wake)"></i>Wakker</span>
-          <span><i style="background:var(--light)"></i>Lichte slaap</span>
-          <span><i style="background:var(--deep)"></i>Diepe slaap</span>
-        </div>
-        <div style="display:grid;gap:8px">
-          <h3>Verdeling van de nacht</h3>
-          <div class="split" id="split"></div>
-          <div class="splitlabels" id="splitLabels"></div>
-        </div>
-        <p class="note">Slaap en slaapfasen zijn een schatting op basis van hartslag alleen: lage, rustige hartslag telt als diepe slaap, een duidelijke stijging als wakker. Een hartslagband meet geen beweging of hersenactiviteit, dus zie dit als trend en niet als medische meting.</p>
-      </section>
-
-      <section class="panel" aria-label="Opgeslagen nachten">
-        <div class="nighthead">
-          <h2>Opgeslagen nachten</h2>
-          <div class="rowact">
-            <button class="ghost" id="btnCsv">Deze nacht als CSV</button>
-            <button class="ghost" id="btnDel">Deze nacht wissen</button>
-          </div>
-        </div>
-        <div class="nights" id="nights"></div>
-        <p class="note" id="nightsEmpty">Nog geen eigen nachten. Hierboven staat een voorbeeldnacht; die verdwijnt zodra je eerste opname klaar is. Nachten worden alleen in deze browser op dit apparaat bewaard.</p>
-      </section>
+  <!-- START -->
+  <section id="v-start" class="stack">
+    <div class="cards">
+      <a class="card" href="#slaap" style="--c:var(--deep)"><h2>Slaapmeter</h2><p>Neem je nacht op en zie hoe lang en hoe rustig je sliep.</p><p class="st" id="cSleep"></p><span class="go">Naar slaap</span></a>
+      <a class="card" href="#stress" style="--c:var(--lamp)"><h2>Stressmeter</h2><p>Houd tijdens het studeren bij hoe gespannen je bent en wanneer je pauze nodig hebt.</p><p class="st" id="cStress"></p><span class="go">Naar stress</span></a>
+      <a class="card" href="#verleiding" style="--c:var(--flirt)"><h2>Verleidingsmeter</h2><p>Wie krijgt de hartslag van de ander het hoogst? Live, met z'n tweeën.</p><p class="st">Hier wordt niets van bewaard.</p><span class="go">Naar verleiding</span></a>
     </div>
-  </div>
+    <div class="cols">
+      <div class="panel">
+        <h2>Band</h2>
+        <dl class="facts">
+          <dt>Naam</dt><dd id="devName">–</dd>
+          <dt>Batterij</dt><dd id="devBat" class="num">–</dd>
+          <dt>Huidcontact</dt><dd id="devContact">–</dd>
+          <dt>HRV-gegevens</dt><dd id="devRR">–</dd>
+        </dl>
+        <p class="note">Verbind de band één keer met de knop bovenaan. Hij blijft verbonden terwijl je tussen de meters wisselt.</p>
+      </div>
+      <div class="panel">
+        <div class="row between"><h2>Wachtwoord</h2><button class="ghost" id="btnLock">Nu vergrendelen</button></div>
+        <p class="note">Het wachtwoord zit versleuteld in het bestand zelf. Wil je een ander wachtwoord, typ het hier, kopieer de regel die verschijnt en vervang daarmee in index.html op GitHub de regel die begint met <span class="num">const PASS_HASH</span>.</p>
+        <div class="fields">
+          <label class="f" for="newPw">Nieuw wachtwoord (minstens 6 tekens)<input type="password" id="newPw" autocomplete="new-password"></label>
+          <button id="btnNewPw">Maak regel</button>
+        </div>
+        <code class="out" id="pwOut" hidden></code>
+        <button class="ghost" id="btnCopyPw" hidden>Regel kopiëren</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- SLAAP -->
+  <section id="v-slaap" class="stack" hidden>
+    <div class="panel">
+      <div class="row between">
+        <div><h2>Slaapopname</h2><p class="note">Start als je gaat slapen. Laat de site open en het apparaat aan de lader.</p></div>
+        <div class="row">
+          <span class="num" id="recDur"></span>
+          <button id="btnRec" disabled>Nacht starten</button>
+          <button id="btnDim" disabled>Scherm donker maken</button>
+        </div>
+      </div>
+    </div>
+    <div class="panel">
+      <div class="row between">
+        <div><h2 id="nTitle">Nacht</h2><div class="note num" id="nWhen"></div></div>
+        <span class="tag" id="nTag" hidden>Voorbeeld</span>
+      </div>
+      <div class="tiles" id="tiles"></div>
+      <div class="chart" id="chart"><div id="tip" hidden></div></div>
+      <div class="legend">
+        <span><i style="background:var(--pulse)"></i>Hartslag per minuut</span>
+        <span><i style="background:var(--wake)"></i>Wakker</span>
+        <span><i style="background:var(--light)"></i>Lichte slaap</span>
+        <span><i style="background:var(--deep)"></i>Diepe slaap</span>
+      </div>
+      <div class="stack" style="gap:8px"><h3>Verdeling van de nacht</h3><div class="split" id="split"></div><div class="splitlabels" id="splitLabels"></div></div>
+      <p class="note">Slaap en slaapfasen zijn een schatting op basis van hartslag alleen. Zie het als trend en niet als medische meting.</p>
+    </div>
+    <div class="panel">
+      <div class="row between"><h2>Opgeslagen nachten</h2>
+        <div class="row"><button class="ghost" id="btnCsv">Deze nacht als CSV</button><button class="ghost" id="btnDel">Deze nacht wissen</button></div></div>
+      <div class="list" id="nights"></div>
+      <p class="note" id="nightsEmpty">Nog geen eigen nachten. Hierboven staat een voorbeeldnacht. Nachten worden alleen in deze browser op dit apparaat bewaard.</p>
+    </div>
+  </section>
+
+  <!-- STRESS -->
+  <section id="v-stress" class="stack" hidden>
+    <div class="cols">
+      <div class="panel">
+        <div class="gauge">
+          <svg viewBox="0 0 220 124" role="img" aria-label="Stressniveau van 0 tot 100">
+            <path d="M20 112 A90 90 0 0 1 200 112" fill="none" stroke="var(--ok)" stroke-width="12" pathLength="100" stroke-dasharray="34 100" opacity=".55"/>
+            <path d="M20 112 A90 90 0 0 1 200 112" fill="none" stroke="var(--lamp)" stroke-width="12" pathLength="100" stroke-dasharray="29 100" stroke-dashoffset="-35.5" opacity=".55"/>
+            <path d="M20 112 A90 90 0 0 1 200 112" fill="none" stroke="var(--bad)" stroke-width="12" pathLength="100" stroke-dasharray="35 100" stroke-dashoffset="-65" opacity=".55"/>
+            <circle id="stDot" cx="20" cy="112" r="9" fill="var(--text)" stroke="var(--bg)" stroke-width="3" opacity="0"/>
+          </svg>
+          <div class="score" id="stScore">–</div>
+          <div class="zone" id="stZone">Nog geen meting</div>
+        </div>
+        <dl class="facts">
+          <dt>Hartslag nu</dt><dd class="num" id="stHr">–</dd>
+          <dt>Jouw rusthartslag</dt><dd class="num" id="stBaseHr">–</dd>
+          <dt>HRV nu</dt><dd class="num" id="stHrv">–</dd>
+          <dt>Jouw rust-HRV</dt><dd class="num" id="stBaseHrv">–</dd>
+          <dt>Sessie</dt><dd class="num" id="stDur">–</dd>
+        </dl>
+        <div class="stack" style="gap:8px">
+          <button id="btnSes" disabled>Studiesessie starten</button>
+          <button id="btnCal" disabled>Rustmeting doen (90 s)</button>
+        </div>
+        <p class="note" id="stMsg"></p>
+      </div>
+      <div class="stack">
+        <div class="hint" id="stPause" hidden>Je zit al vijf minuten in het rode gebied. Sta even op en adem een minuut lang langzaam uit.</div>
+        <div class="panel">
+          <div class="row between"><div><h2 id="stTitle">Sessie</h2><div class="note num" id="stWhen"></div></div><span class="tag" id="stTag" hidden>Voorbeeld</span></div>
+          <div class="tiles" id="stTiles"></div>
+          <div class="chart" id="stChart"></div>
+          <div class="legend"><span><i style="background:var(--ok)"></i>Rustig (0–35)</span><span><i style="background:var(--lamp)"></i>Alert (35–65)</span><span><i style="background:var(--bad)"></i>Gespannen (65–100)</span></div>
+          <p class="note">De score vergelijkt je hartslag en hartslagvariatie met je eigen rustmeting. Koffie, traplopen en lachen tellen ook mee, dus het is een indicatie en geen diagnose.</p>
+        </div>
+        <div class="panel">
+          <div class="row between"><h2>Eerdere sessies</h2><button class="ghost" id="btnStClear">Geschiedenis wissen</button></div>
+          <div class="list" id="stList"></div>
+          <p class="note" id="stEmpty">Nog geen eigen sessies. Hierboven staat een voorbeeld.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- VERLEIDING -->
+  <section id="v-verleiding" class="stack" hidden>
+    <div class="stage" id="stage">
+      <canvas id="cv"></canvas>
+      <div class="st-top"><span id="flWho"></span><span class="num" id="flTimer"></span></div>
+      <div class="st-bot"><span id="flPct">0%</span><span id="flLabel">IJskoud</span><span id="flMsg"></span></div>
+    </div>
+    <div class="panel">
+      <div class="fields">
+        <label class="f" for="p0">Speler 1<input type="text" id="p0" maxlength="18" value="Speler 1"></label>
+        <label class="f" for="p1">Speler 2<input type="text" id="p1" maxlength="18" value="Speler 2"></label>
+        <label class="f" for="flLen">Lengte van een ronde
+          <select id="flLen"><option value="120">2 minuten</option><option value="180" selected>3 minuten</option><option value="300">5 minuten</option><option value="0">Tot ik stop</option></select></label>
+      </div>
+      <div class="row">
+        <span class="note">Wie draagt de band?</span>
+        <button id="w0" aria-pressed="true">Speler 1</button><button id="w1" aria-pressed="false">Speler 2</button>
+      </div>
+      <div class="row">
+        <button class="hot" id="btnFl" disabled>Ronde starten</button>
+        <button class="ghost" id="btnFull">Volledig scherm</button>
+      </div>
+      <div class="board" id="board"></div>
+      <div class="row between">
+        <p class="note">Elke ronde begint met 20 seconden rustmeting. Daarna telt hoeveel de hartslag boven die rust uitkomt: 100% is 40 slagen erboven. De ander doet het werk, de drager probeert koel te blijven. Niets hiervan wordt opgeslagen.</p>
+        <button class="ghost" id="btnFlClear">Scores wissen</button>
+      </div>
+    </div>
+  </section>
 </div>
 
-<div id="dim" hidden>
-  <div class="c" id="dimClock">00:00</div>
-  <div class="h" id="dimHr">–</div>
-  <div class="x">Tik om het scherm terug te krijgen</div>
-</div>
+<div id="dim" hidden><div class="c" id="dimClock">00:00</div><div class="h" id="dimHr">–</div><div class="x">Tik om het scherm terug te krijgen</div></div>
 
 <script>
 "use strict";
+/* ====== WACHTWOORD ======
+   Vervang de regel hieronder om het wachtwoord te wijzigen (zie Start > Wachtwoord). */
+const PASS_HASH = "153743a3be956f0f44a573074a257ae78c6dc7541da7974418e3b2a7cf417b3d";
+const PASS_SALT = "nachtritme-v1";
+
 const $ = id => document.getElementById(id);
-const KEY_NIGHTS = "nachtritme.nachten", KEY_ACTIVE = "nachtritme.actief";
+const KEY_NIGHTS = "nachtritme.nachten", KEY_ACTIVE = "nachtritme.actief", KEY_LOCK = "nachtritme.sleutel",
+      KEY_BASE = "nachtritme.stressbasis", KEY_STRESS = "nachtritme.stress";
 const MIN = 60000, EPOCH = 5 * MIN;
-
-/* ---------- opslag ---------- */
-function load(key, fallback) { try { const v = localStorage.getItem(key); return v ? JSON.parse(v) : fallback; } catch (e) { return fallback; } }
+function load(key, fb) { try { const v = localStorage.getItem(key); return v ? JSON.parse(v) : fb; } catch (e) { return fb; } }
 function save(key, val) { try { if (val === null) localStorage.removeItem(key); else localStorage.setItem(key, JSON.stringify(val)); return true; } catch (e) { return false; } }
-
-const S = {
-  device: null, char: null, connected: false, wantConn: false, retry: 0,
-  rec: null, bucket: null, lastHr: null, lastBeatAt: 0, hasRR: false,
-  nights: load(KEY_NIGHTS, []), selected: null, wakeLock: null, delArmed: false
-};
-
-/* een opname die door een crash of gesloten tabblad is blijven staan, alsnog bewaren */
-(function recover() {
-  const a = load(KEY_ACTIVE, null);
-  if (a && a.minutes && a.minutes.length) {
-    a.end = a.minutes[a.minutes.length - 1].t + MIN;
-    S.nights.unshift(a); save(KEY_NIGHTS, S.nights);
-  }
-  save(KEY_ACTIVE, null);
-})();
-
-/* ---------- tijd ---------- */
 const p2 = n => String(n).padStart(2, "0");
 const hm = t => { const d = new Date(t); return p2(d.getHours()) + ":" + p2(d.getMinutes()); };
 const dur = min => { min = Math.round(min); return Math.floor(min / 60) + " u " + p2(min % 60); };
+const ms = s => { s = Math.max(0, Math.round(s)); return Math.floor(s / 60) + ":" + p2(s % 60); };
 const dayName = t => new Date(t).toLocaleDateString("nl-NL", { weekday: "long", day: "numeric", month: "long" });
+const clamp = (v, a, b) => Math.min(b, Math.max(a, v));
+const mean = a => a.reduce((s, v) => s + v, 0) / a.length;
+const css = v => getComputedStyle(document.documentElement).getPropertyValue(v).trim();
+function rng(seed) { return () => { seed |= 0; seed = seed + 0x6D2B79F5 | 0; let t = Math.imul(seed ^ seed >>> 15, 1 | seed); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; }; }
+function showErr(msg) { const e = $("err"); e.textContent = msg || ""; e.hidden = !msg; }
+function twoClick(btn, label, fn) { let armed = false, timer;
+  btn.addEventListener("click", () => { if (!armed) { armed = true; btn.textContent = "Zeker weten? Klik nog eens"; timer = setTimeout(() => { armed = false; btn.textContent = label; }, 4000); return; }
+    clearTimeout(timer); armed = false; btn.textContent = label; fn(); }); }
+function rmssd(rrs, need) {
+  const ok = rrs.filter(r => r > 300 && r < 2000); let sum = 0, n = 0;
+  for (let i = 1; i < ok.length; i++) { const d = ok[i] - ok[i - 1]; if (Math.abs(d) < ok[i - 1] * .2) { sum += d * d; n++; } }
+  return n >= (need || 10) ? Math.round(Math.sqrt(sum / n)) : null;
+}
 
-/* ---------- voorbeeldnacht ---------- */
+/* ====== SLOT ====== */
+async function hashPw(pw) {
+  const enc = new TextEncoder(), k = await crypto.subtle.importKey("raw", enc.encode(pw), "PBKDF2", false, ["deriveBits"]);
+  const bits = await crypto.subtle.deriveBits({ name: "PBKDF2", salt: enc.encode(PASS_SALT), iterations: 100000, hash: "SHA-256" }, k, 256);
+  return [...new Uint8Array(bits)].map(b => b.toString(16).padStart(2, "0")).join("");
+}
+function gateErr(m) { $("gateErr").textContent = m; $("gateErr").hidden = !m; }
+$("gateForm").addEventListener("submit", async ev => {
+  ev.preventDefault(); gateErr("");
+  try {
+    const h = await hashPw($("pw").value);
+    if (h !== PASS_HASH) { gateErr("Dat wachtwoord klopt niet."); return; }
+    if ($("remember").checked) save(KEY_LOCK, h);
+    unlock();
+  } catch (e) { gateErr("Deze browser kan het wachtwoord niet controleren. Open de site via https in een recente browser."); }
+});
+function unlock() { $("gate").hidden = true; $("app").hidden = false; $("pw").value = ""; init(); }
+$("btnLock").addEventListener("click", () => { save(KEY_LOCK, null); location.reload(); });
+$("btnNewPw").addEventListener("click", async () => {
+  const v = $("newPw").value; if (v.length < 6) { $("pwOut").hidden = false; $("pwOut").textContent = "Kies minstens 6 tekens."; $("btnCopyPw").hidden = true; return; }
+  $("pwOut").textContent = 'const PASS_HASH = "' + await hashPw(v) + '";'; $("pwOut").hidden = false; $("btnCopyPw").hidden = false; $("newPw").value = "";
+});
+$("btnCopyPw").addEventListener("click", async () => { try { await navigator.clipboard.writeText($("pwOut").textContent); $("btnCopyPw").textContent = "Gekopieerd"; } catch (e) { $("btnCopyPw").textContent = "Kopiëren lukte niet: selecteer de regel zelf"; } });
+
+/* ====== BAND ====== */
+const Band = { device: null, connected: false, want: false, retry: 0, hr: null, lastAt: 0, hasRR: false, recent: [], rr: [] };
+function setConn(state) {
+  const p = $("connPill");
+  p.className = "pill" + (state === "ok" ? " ok" : state === "retry" ? " warn" : "");
+  p.textContent = state === "ok" ? "Verbonden" : state === "retry" ? "Opnieuw verbinden…" : state === "busy" ? "Verbinden…" : "Niet verbonden";
+  Band.connected = state === "ok";
+  $("btnConnect").textContent = Band.want ? "Verbreken" : "Band verbinden";
+  $("btnConnect").className = Band.want ? "ghost" : "primary";
+  if (!Band.connected) { $("bpm").textContent = "––"; Band.hr = null; }
+  syncButtons();
+}
+async function link() {
+  const server = await Band.device.gatt.connect();
+  const ch = await (await server.getPrimaryService("heart_rate")).getCharacteristic("heart_rate_measurement");
+  ch.addEventListener("characteristicvaluechanged", onHr);
+  await ch.startNotifications();
+  Band.retry = 0; setConn("ok"); showErr("");
+  $("devName").textContent = Band.device.name || "Hartslagband";
+  try { const b = await (await server.getPrimaryService("battery_service")).getCharacteristic("battery_level"); $("devBat").textContent = (await b.readValue()).getUint8(0) + "%"; }
+  catch (e) { $("devBat").textContent = "onbekend"; }
+}
+async function connect() {
+  showErr("");
+  try { Band.device = await navigator.bluetooth.requestDevice({ filters: [{ services: ["heart_rate"] }], optionalServices: ["battery_service"] }); }
+  catch (e) { if (e.name !== "NotFoundError") showErr("Zoeken naar de band lukte niet: " + e.message); return; }
+  Band.want = true; setConn("busy");
+  Band.device.addEventListener("gattserverdisconnected", onDisconnect);
+  try { await link(); }
+  catch (e) { showErr("Verbinden lukte niet. Draag de band (maak bij een borstband de elektroden vochtig) en sluit andere apps die ermee verbonden zijn."); onDisconnect(); }
+}
+function onDisconnect() {
+  if (!Band.want) { setConn("off"); return; }
+  setConn("retry");
+  const wait = [2, 5, 10, 20, 30][Math.min(Band.retry++, 4)] * 1000;
+  setTimeout(async () => { if (!Band.want || Band.connected) return; try { await link(); } catch (e) { onDisconnect(); } }, wait);
+}
+function disconnect() { Band.want = false; try { if (Band.device && Band.device.gatt.connected) Band.device.gatt.disconnect(); } catch (e) {} setConn("off"); }
+function onHr(ev) {
+  const v = ev.target.value, flags = v.getUint8(0); let i = 1, hr;
+  if (flags & 1) { hr = v.getUint16(i, true); i += 2; } else { hr = v.getUint8(i); i += 1; }
+  const cs = flags & 4, contact = flags & 2;
+  if (flags & 8) i += 2;
+  const rrs = []; if (flags & 16) for (; i + 1 < v.byteLength; i += 2) rrs.push(v.getUint16(i, true) / 1024 * 1000);
+  if (rrs.length) Band.hasRR = true;
+  $("devContact").textContent = cs ? (contact ? "goed" : "geen contact") : "niet gemeld";
+  $("devRR").textContent = Band.hasRR ? "ja" : "nee";
+  if (!hr || (cs && !contact)) return;
+  const now = Date.now(); Band.hr = hr; Band.lastAt = now;
+  Band.recent.push({ t: now, hr }); for (const r of rrs) Band.rr.push({ t: now, rr: r });
+  while (Band.recent.length && now - Band.recent[0].t > 120000) Band.recent.shift();
+  while (Band.rr.length && now - Band.rr[0].t > 120000) Band.rr.shift();
+  $("bpm").textContent = hr; $("dimHr").textContent = hr + " /min";
+  sleepBeat(hr, rrs, now); stressBeat(hr, rrs, now); flirtBeat(hr, now);
+}
+$("btnConnect").addEventListener("click", () => Band.want ? disconnect() : connect());
+
+let wakeLock = null;
+async function wakeSync() {
+  const need = !!(S.rec || ST.ses || ST.cal || FL.phase === "rest" || FL.phase === "live");
+  try {
+    if (need && "wakeLock" in navigator && !wakeLock) { wakeLock = await navigator.wakeLock.request("screen"); wakeLock.addEventListener("release", () => { wakeLock = null; }); }
+    if (!need && wakeLock) { await wakeLock.release(); wakeLock = null; }
+  } catch (e) {}
+}
+document.addEventListener("visibilitychange", () => { if (document.visibilityState === "visible") wakeSync(); });
+window.addEventListener("beforeunload", ev => { if (S.rec || ST.ses) { ev.preventDefault(); ev.returnValue = ""; } });
+function syncButtons() {
+  const on = !!S.rec;
+  $("recPill").hidden = !on; $("btnDim").disabled = !on;
+  $("btnRec").textContent = on ? "Nacht stoppen en bewaren" : "Nacht starten"; $("btnRec").className = on ? "stop" : "";
+  $("btnRec").disabled = !on && !Band.connected; if (!on) $("recDur").textContent = "";
+  $("btnCal").disabled = !Band.connected || !!ST.cal || !!ST.ses;
+  $("btnSes").disabled = !ST.ses && (!Band.connected || !ST.base || !!ST.cal);
+  $("btnSes").textContent = ST.ses ? "Sessie stoppen en bewaren" : "Studiesessie starten"; $("btnSes").className = ST.ses ? "stop" : "primary";
+  const live = FL.phase === "rest" || FL.phase === "live";
+  $("btnFl").disabled = !live && !Band.connected; $("btnFl").textContent = live ? "Ronde stoppen" : "Ronde starten"; $("btnFl").className = live ? "stop" : "hot";
+}
+
+/* ====== SLAAP ====== */
+const S = { rec: null, bucket: null, nights: load(KEY_NIGHTS, []), selected: null };
+(function recover() { const a = load(KEY_ACTIVE, null);
+  if (a && a.minutes && a.minutes.length) { a.end = a.minutes[a.minutes.length - 1].t + MIN; S.nights.unshift(a); save(KEY_NIGHTS, S.nights); }
+  save(KEY_ACTIVE, null); })();
+
 function demoNight() {
-  let seed = 20261110;
-  const rnd = () => { seed |= 0; seed = seed + 0x6D2B79F5 | 0; let t = Math.imul(seed ^ seed >>> 15, 1 | seed); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; };
-  const d = new Date(); d.setDate(d.getDate() - 1); d.setHours(23, 10, 0, 0);
+  const rnd = rng(20261110), d = new Date(); d.setDate(d.getDate() - 1); d.setHours(23, 10, 0, 0);
   const start = d.getTime(), n = 475, minutes = [];
   for (let m = 0; m < n; m++) {
-    let hr = 53 + 9 * Math.exp(-m / 55) + 3.2 * Math.sin(2 * Math.PI * m / 92) + (rnd() - .5) * 2.4;
-    let spread = 2 + rnd() * 3, awake = false;
+    let hr = 53 + 9 * Math.exp(-m / 55) + 3.2 * Math.sin(2 * Math.PI * m / 92) + (rnd() - .5) * 2.4, spread = 2 + rnd() * 3, awake = false;
     if (m < 16) { hr += 13 - m * .5; awake = true; }
     if ((m >= 204 && m < 211) || (m >= 338 && m < 346)) { hr += 15; awake = true; }
     if (m > n - 14) { hr += (m - (n - 14)) * 1.3; awake = true; }
     if (awake) spread += 8 + rnd() * 10;
-    minutes.push({ t: start + m * MIN, hr: +hr.toFixed(1), lo: Math.round(hr - spread), hi: Math.round(hr + spread), n: 60,
-      rmssd: Math.round(Math.max(14, 96 - hr * 0.95 + (rnd() - .5) * 10 - (awake ? 14 : 0))) });
+    minutes.push({ t: start + m * MIN, hr: +hr.toFixed(1), lo: Math.round(hr - spread), hi: Math.round(hr + spread), n: 60, rmssd: Math.round(Math.max(14, 96 - hr * .95 + (rnd() - .5) * 10 - (awake ? 14 : 0))) });
   }
   return { id: "demo", demo: true, start, end: start + n * MIN, hasRR: true, minutes };
 }
 const DEMO = demoNight();
-
-/* ---------- analyse ---------- */
 function quantile(sorted, q) { if (!sorted.length) return NaN; const i = (sorted.length - 1) * q, a = Math.floor(i), b = Math.ceil(i); return sorted[a] + (sorted[b] - sorted[a]) * (i - a); }
 
 function analyse(night) {
   const mins = night.minutes;
-  const out = { epochs: [], sleepMin: 0, bedMin: 0, onset: null, wakeEnd: null, awakenings: 0, lowest: null, avgSleep: null, rmssd: null, deepMin: 0, lightMin: 0, wakeMin: 0, enough: false };
+  const out = { epochs: [], sleepMin: 0, bedMin: 0, onset: null, awakenings: 0, lowest: null, avgSleep: null, rmssd: null, deepMin: 0, lightMin: 0, wakeMin: 0, enough: false };
   if (!mins.length) return out;
   const end = night.end || (mins[mins.length - 1].t + MIN);
   out.bedMin = (end - night.start) / MIN;
-  let low = mins[0]; for (const m of mins) if (m.hr < low.hr) low = m;
-  out.lowest = low;
-
+  let low = mins[0]; for (const m of mins) if (m.hr < low.hr) low = m; out.lowest = low;
   const map = new Map();
   for (const m of mins) { const k = Math.floor((m.t - night.start) / EPOCH); if (!map.has(k)) map.set(k, []); map.get(k).push(m); }
-  const eps = [...map.entries()].sort((a, b) => a[0] - b[0]).map(([k, ms]) => {
-    const avg = ms.reduce((s, m) => s + m.hr, 0) / ms.length;
-    const range = ms.reduce((s, m) => s + (m.hi - m.lo), 0) / ms.length;
-    const rr = ms.filter(m => m.rmssd != null);
-    return { k, t: night.start + k * EPOCH, avg, range, mins: ms.length, rmssd: rr.length ? rr.reduce((s, m) => s + m.rmssd, 0) / rr.length : null, stage: "light" };
+  const eps = [...map.entries()].sort((a, b) => a[0] - b[0]).map(([k, g]) => {
+    const rr = g.filter(m => m.rmssd != null);
+    return { k, t: night.start + k * EPOCH, avg: mean(g.map(m => m.hr)), range: mean(g.map(m => m.hi - m.lo)), mins: g.length, rmssd: rr.length ? mean(rr.map(m => m.rmssd)) : null, stage: "light" };
   });
-  out.epochs = eps;
-  out.enough = eps.length >= 6;                       // minder dan een half uur: geen slaapschatting
+  out.epochs = eps; out.enough = eps.length >= 6;
   if (!out.enough) { eps.forEach(e => e.stage = "wake"); out.wakeMin = out.bedMin; return out; }
-
-  const sorted = eps.map(e => e.avg).sort((a, b) => a - b);
-  const med = quantile(sorted, .5), p30 = quantile(sorted, .3);
-  for (const e of eps) {
-    if (e.avg > med + Math.max(6, med * .10) || e.range > 25) e.stage = "wake";
-    else if (e.avg <= p30 && e.range < 10) e.stage = "deep";
-    else e.stage = "light";
-  }
-  for (let i = 1; i < eps.length - 1; i++) {          // losse uitschieters tussen diep/licht gladstrijken
-    const a = eps[i - 1].stage, b = eps[i].stage, c = eps[i + 1].stage;
-    if (b !== "wake" && a === c && a !== "wake" && a !== b) eps[i].stage = a;
-  }
+  const sorted = eps.map(e => e.avg).sort((a, b) => a - b), med = quantile(sorted, .5), p30 = quantile(sorted, .3);
+  for (const e of eps) e.stage = (e.avg > med + Math.max(6, med * .10) || e.range > 25) ? "wake" : (e.avg <= p30 && e.range < 10) ? "deep" : "light";
+  for (let i = 1; i < eps.length - 1; i++) { const a = eps[i - 1].stage, b = eps[i].stage, c = eps[i + 1].stage; if (b !== "wake" && a === c && a !== "wake" && a !== b) eps[i].stage = a; }
   let on = -1, off = -1;
   for (let i = 0; i < eps.length - 2; i++) if (eps[i].stage !== "wake" && eps[i + 1].stage !== "wake" && eps[i + 2].stage !== "wake") { on = i; break; }
   for (let i = eps.length - 1; i >= 0; i--) if (eps[i].stage !== "wake") { off = i; break; }
   if (on < 0) { eps.forEach(e => e.stage = "wake"); out.wakeMin = out.bedMin; return out; }
   eps.forEach((e, i) => { if (i < on || i > off) e.stage = "wake"; });
-  out.onset = eps[on].t; out.wakeEnd = eps[off].t + EPOCH;
-
-  let hrSum = 0, hrN = 0, rrSum = 0, rrN = 0, inWake = false;
+  out.onset = eps[on].t;
+  let hs = 0, hn = 0, rs = 0, rn = 0, inWake = false;
   eps.forEach((e, i) => {
     if (e.stage === "deep") out.deepMin += e.mins; else if (e.stage === "light") out.lightMin += e.mins;
-    if (e.stage !== "wake") { hrSum += e.avg * e.mins; hrN += e.mins; if (e.rmssd != null) { rrSum += e.rmssd * e.mins; rrN += e.mins; } inWake = false; }
+    if (e.stage !== "wake") { hs += e.avg * e.mins; hn += e.mins; if (e.rmssd != null) { rs += e.rmssd * e.mins; rn += e.mins; } inWake = false; }
     else if (i > on && i < off && !inWake) { out.awakenings++; inWake = true; }
   });
-  out.sleepMin = out.deepMin + out.lightMin;
-  out.wakeMin = Math.max(0, out.bedMin - out.sleepMin);
-  out.avgSleep = hrN ? hrSum / hrN : null;
-  out.rmssd = rrN ? rrSum / rrN : null;
+  out.sleepMin = out.deepMin + out.lightMin; out.wakeMin = Math.max(0, out.bedMin - out.sleepMin);
+  out.avgSleep = hn ? hs / hn : null; out.rmssd = rn ? rs / rn : null;
   return out;
 }
-
-/* ---------- weergave nacht ---------- */
 function currentNight() {
   if (S.selected === "live" && S.rec) return S.rec;
-  const n = S.nights.find(n => n.id === S.selected);
-  if (n) return n;
-  if (S.rec) return S.rec;
-  return S.nights[0] || DEMO;
+  return S.nights.find(n => n.id === S.selected) || S.rec || S.nights[0] || DEMO;
 }
-const css = v => getComputedStyle(document.documentElement).getPropertyValue(v).trim();
 const STAGE = { wake: ["--wake", "Wakker"], light: ["--light", "Lichte slaap"], deep: ["--deep", "Diepe slaap"] };
-
-function tile(label, value, sub) { return `<div class="tile"><h3>${label}</h3><div class="v">${value}</div>${sub ? `<div class="s">${sub}</div>` : ""}</div>`; }
+const tile = (label, value, sub) => `<div class="tile"><h3>${label}</h3><div class="v">${value}</div>${sub ? `<div class="s">${sub}</div>` : ""}</div>`;
 
 function renderNight() {
-  const night = currentNight(), a = analyse(night), live = night === S.rec;
-  const end = night.end || Date.now();
+  const night = currentNight(), a = analyse(night), live = night === S.rec, end = night.end || Date.now();
   $("nTitle").textContent = live ? "Deze nacht (loopt nog)" : "Nacht van " + dayName(night.start);
   $("nWhen").textContent = hm(night.start) + " – " + hm(end) + (live ? "" : "  ·  " + dur((end - night.start) / MIN) + " in bed");
   $("nTag").hidden = !night.demo;
-
   const none = "<small>nog te kort</small>";
   $("tiles").innerHTML =
     tile("Geschatte slaap", a.enough && a.sleepMin ? dur(a.sleepMin) : none, a.onset ? "in slaap rond " + hm(a.onset) : "vanaf een half uur opname") +
@@ -342,259 +535,323 @@ function renderNight() {
     tile("Gemiddeld in slaap", a.avgSleep ? Math.round(a.avgSleep) + " <small>/min</small>" : "–", "") +
     tile("HRV (RMSSD)", a.rmssd ? Math.round(a.rmssd) + " <small>ms</small>" : "<small>geen gegevens</small>", a.rmssd ? "gemiddeld tijdens slaap" : "je band stuurt geen slag-tot-slag-tijden") +
     tile("Keer wakker", a.enough ? String(a.awakenings) : "–", a.enough ? dur(a.wakeMin) + " wakker in bed" : "");
-
-  const tot = a.deepMin + a.lightMin + a.wakeMin || 1;
-  const parts = [["deep", a.deepMin], ["light", a.lightMin], ["wake", a.wakeMin]];
+  const tot = a.deepMin + a.lightMin + a.wakeMin || 1, parts = [["deep", a.deepMin], ["light", a.lightMin], ["wake", a.wakeMin]];
   $("split").innerHTML = parts.map(([s, m]) => `<div style="width:${m / tot * 100}%;background:var(${STAGE[s][0]})"></div>`).join("");
   $("splitLabels").innerHTML = a.enough ? parts.map(([s, m]) => `<span>${STAGE[s][1]} <b>${dur(m)}</b> (${Math.round(m / tot * 100)}%)</span>`).join("") : "<span>Verschijnt na een half uur opname.</span>";
-
-  drawChart(night, a);
-  renderList();
+  drawNight(night, a); renderNights();
 }
-
+const axisText = (x, y, txt, anchor) => `<text x="${x}" y="${y}" text-anchor="${anchor}" font-size="11" fill="${css("--muted")}" font-family="${css("--mono")}">${txt}</text>`;
 let chartCtx = null;
-function drawChart(night, a) {
+function drawNight(night, a) {
   const box = $("chart"), old = box.querySelector("svg"); if (old) old.remove();
-  const mins = night.minutes;
-  const W = Math.max(300, box.clientWidth || 700), H = 250, L = 36, R = 10, T = 14, B = 46;
-  const t0 = night.start, t1 = Math.max(night.end || Date.now(), t0 + 30 * MIN);
-  const x = t => L + (t - t0) / (t1 - t0) * (W - L - R);
+  const mins = night.minutes, W = Math.max(300, box.clientWidth || 700), H = 250, L = 36, R = 10, T = 14, B = 46;
+  const t0 = night.start, t1 = Math.max(night.end || Date.now(), t0 + 30 * MIN), x = t => L + (t - t0) / (t1 - t0) * (W - L - R);
   let lo = 40, hi = 80;
   if (mins.length) { lo = Math.floor((Math.min(...mins.map(m => m.hr)) - 3) / 10) * 10; hi = Math.ceil((Math.max(...mins.map(m => m.hr)) + 3) / 10) * 10; }
   if (hi - lo < 20) hi = lo + 20;
-  const y = v => T + (hi - v) / (hi - lo) * (H - T - B);
-  const muted = css("--muted"), line = css("--line"), pulse = css("--pulse");
+  const y = v => T + (hi - v) / (hi - lo) * (H - T - B), line = css("--line"), pulse = css("--pulse");
   let s = `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="Hartslag door de nacht met slaapfasen"><defs><linearGradient id="g" x1="0" x2="0" y1="0" y2="1"><stop offset="0" stop-color="${pulse}" stop-opacity=".32"/><stop offset="1" stop-color="${pulse}" stop-opacity="0"/></linearGradient></defs>`;
-  const step = hi - lo > 60 ? 20 : 10;
-  for (let v = lo; v <= hi; v += step) s += `<line x1="${L}" x2="${W - R}" y1="${y(v)}" y2="${y(v)}" stroke="${line}" stroke-width="1"/><text x="${L - 7}" y="${y(v) + 4}" text-anchor="end" font-size="11" fill="${muted}" font-family="${css("--mono")}">${v}</text>`;
-  /* uren */
-  const hours = (t1 - t0) / 3600000, every = Math.max(1, Math.ceil(hours / ((W - L - R) / 62)));
-  const h0 = new Date(t0); h0.setMinutes(0, 0, 0);
+  for (let v = lo, st = hi - lo > 60 ? 20 : 10; v <= hi; v += st) s += `<line x1="${L}" x2="${W - R}" y1="${y(v)}" y2="${y(v)}" stroke="${line}"/>` + axisText(L - 7, y(v) + 4, v, "end");
+  const every = Math.max(1, Math.ceil((t1 - t0) / 3600000 / ((W - L - R) / 62))), h0 = new Date(t0); h0.setMinutes(0, 0, 0);
   for (let t = h0.getTime() + 3600000, i = 0; t < t1; t += 3600000, i++) {
     if (i % every || x(t) < L + 14 || x(t) > W - R - 14) continue;
-    s += `<line x1="${x(t)}" x2="${x(t)}" y1="${T}" y2="${H - B}" stroke="${line}" stroke-width="1" stroke-dasharray="2 4"/><text x="${x(t)}" y="${H - 6}" text-anchor="middle" font-size="11" fill="${muted}" font-family="${css("--mono")}">${hm(t)}</text>`;
+    s += `<line x1="${x(t)}" x2="${x(t)}" y1="${T}" y2="${H - B}" stroke="${line}" stroke-dasharray="2 4"/>` + axisText(x(t), H - 6, hm(t), "middle");
   }
-  /* lijn, onderbroken waar gegevens ontbreken */
   const segs = []; let cur = [];
-  mins.forEach((m, i) => { if (i && m.t - mins[i - 1].t > 3 * MIN) { segs.push(cur); cur = []; } cur.push(m); });
-  if (cur.length) segs.push(cur);
+  mins.forEach((m, i) => { if (i && m.t - mins[i - 1].t > 3 * MIN) { segs.push(cur); cur = []; } cur.push(m); }); if (cur.length) segs.push(cur);
   for (const sg of segs) {
-    const pts = sg.map(m => `${x(m.t + MIN / 2).toFixed(1)},${y(m.hr).toFixed(1)}`);
-    if (sg.length > 1) s += `<path d="M${pts[0].split(",")[0]},${H - B} L${pts.join(" L")} L${pts[pts.length - 1].split(",")[0]},${H - B} Z" fill="url(#g)"/>`;
-    s += `<path d="M${pts.join(" L")}" fill="none" stroke="${pulse}" stroke-width="1.8" stroke-linejoin="round" stroke-linecap="round"/>`;
+    const pts = sg.map(m => [x(m.t + MIN / 2).toFixed(1), y(m.hr).toFixed(1)]), d = pts.map(p => p.join(",")).join(" L");
+    if (sg.length > 1) s += `<path d="M${pts[0][0]},${H - B} L${d} L${pts[pts.length - 1][0]},${H - B} Z" fill="url(#g)"/>`;
+    s += `<path d="M${d}" fill="none" stroke="${pulse}" stroke-width="1.8" stroke-linejoin="round" stroke-linecap="round"/>`;
   }
-  /* slaapfasen */
-  for (const e of a.epochs) { const w = Math.max(1, x(e.t + EPOCH) - x(e.t)); s += `<rect x="${x(e.t).toFixed(1)}" y="${H - B + 9}" width="${Math.min(w, W - R - x(e.t)).toFixed(1)}" height="10" fill="${css(STAGE[e.stage][0])}"/>`; }
-  /* laagste punt */
-  if (a.lowest && mins.length > 5) {
-    const lx = x(a.lowest.t + MIN / 2), ly = y(a.lowest.hr), right = lx < W - 110;
-    s += `<circle cx="${lx}" cy="${ly}" r="4.5" fill="${css("--bg")}" stroke="${css("--text")}" stroke-width="2"/><text x="${lx + (right ? 9 : -9)}" y="${ly + 15}" text-anchor="${right ? "start" : "end"}" font-size="11.5" fill="${css("--text")}" font-family="${css("--body")}">laagste ${Math.round(a.lowest.hr)}</text>`;
-  }
-  s += `<line id="cross" x1="0" x2="0" y1="${T}" y2="${H - B}" stroke="${css("--text")}" stroke-width="1" opacity="0"/></svg>`;
-  box.insertAdjacentHTML("afterbegin", s);
-  chartCtx = { mins, epochs: a.epochs, t0, t1, L, R, W };
+  for (const e of a.epochs) s += `<rect x="${x(e.t).toFixed(1)}" y="${H - B + 9}" width="${Math.max(1, Math.min(x(e.t + EPOCH), W - R) - x(e.t)).toFixed(1)}" height="10" fill="${css(STAGE[e.stage][0])}"/>`;
+  if (a.lowest && mins.length > 5) { const lx = x(a.lowest.t + MIN / 2), ly = y(a.lowest.hr), right = lx < W - 110;
+    s += `<circle cx="${lx}" cy="${ly}" r="4.5" fill="${css("--bg")}" stroke="${css("--text")}" stroke-width="2"/><text x="${lx + (right ? 9 : -9)}" y="${ly + 15}" text-anchor="${right ? "start" : "end"}" font-size="11.5" fill="${css("--text")}">laagste ${Math.round(a.lowest.hr)}</text>`; }
+  s += `<line id="cross" x1="0" x2="0" y1="${T}" y2="${H - B}" stroke="${css("--text")}" opacity="0"/></svg>`;
+  box.insertAdjacentHTML("afterbegin", s); chartCtx = { mins, epochs: a.epochs, t0, t1, L, R, W };
 }
 function chartMove(ev) {
   const svg = $("chart").querySelector("svg"), c = chartCtx; if (!svg || !c || !c.mins.length) return;
-  const r = svg.getBoundingClientRect(), px = (ev.clientX - r.left) / r.width * c.W;
-  const t = c.t0 + (px - c.L) / (c.W - c.L - c.R) * (c.t1 - c.t0);
+  const r = svg.getBoundingClientRect(), t = c.t0 + ((ev.clientX - r.left) / r.width * c.W - c.L) / (c.W - c.L - c.R) * (c.t1 - c.t0);
   let best = c.mins[0]; for (const m of c.mins) if (Math.abs(m.t + MIN / 2 - t) < Math.abs(best.t + MIN / 2 - t)) best = m;
-  const ep = c.epochs.find(e => best.t >= e.t && best.t < e.t + EPOCH);
-  const bx = c.L + (best.t + MIN / 2 - c.t0) / (c.t1 - c.t0) * (c.W - c.L - c.R);
+  const ep = c.epochs.find(e => best.t >= e.t && best.t < e.t + EPOCH), bx = c.L + (best.t + MIN / 2 - c.t0) / (c.t1 - c.t0) * (c.W - c.L - c.R);
   const cross = svg.querySelector("#cross"); cross.setAttribute("x1", bx); cross.setAttribute("x2", bx); cross.setAttribute("opacity", ".35");
   const tip = $("tip"); tip.hidden = false;
   tip.textContent = hm(best.t) + "  ·  " + Math.round(best.hr) + " /min" + (ep ? "  ·  " + STAGE[ep.stage][1].toLowerCase() : "");
-  tip.style.left = Math.min(Math.max(bx / c.W * r.width, 80), r.width - 80) + "px";
+  tip.style.left = clamp(bx / c.W * r.width, 80, r.width - 80) + "px";
 }
-$("chart").addEventListener("pointermove", chartMove);
-$("chart").addEventListener("pointerdown", chartMove);
+$("chart").addEventListener("pointermove", chartMove); $("chart").addEventListener("pointerdown", chartMove);
 $("chart").addEventListener("pointerleave", () => { $("tip").hidden = true; const c = $("chart").querySelector("#cross"); if (c) c.setAttribute("opacity", "0"); });
 
-function renderList() {
-  const box = $("nights"), cur = currentNight(); box.textContent = "";
-  $("nightsEmpty").hidden = S.nights.length > 0;
-  const rows = (S.rec ? [S.rec] : []).concat(S.nights);
-  for (const n of rows) {
-    const a = analyse(n), b = document.createElement("button");
-    b.className = "night"; b.type = "button"; if (n === cur) b.setAttribute("aria-current", "true");
-    const live = n === S.rec;
+function renderNights() {
+  const box = $("nights"), cur = currentNight(); box.textContent = ""; $("nightsEmpty").hidden = S.nights.length > 0;
+  for (const n of (S.rec ? [S.rec] : []).concat(S.nights)) {
+    const a = analyse(n), b = document.createElement("button"), live = n === S.rec;
+    b.className = "item"; b.type = "button"; if (n === cur) b.setAttribute("aria-current", "true");
     b.innerHTML = `<span><span class="d"></span><br><span class="m num"></span></span><span class="num"></span><span class="num m"></span>`;
     b.querySelector(".d").textContent = live ? "Loopt nu" : dayName(n.start);
     b.querySelector(".m").textContent = hm(n.start) + " – " + (live ? "nu" : hm(n.end));
     b.children[1].textContent = a.enough && a.sleepMin ? dur(a.sleepMin) : "–";
     b.children[2].textContent = a.lowest ? "laagste " + Math.round(a.lowest.hr) : "";
-    b.addEventListener("click", () => { S.selected = live ? "live" : n.id; disarmDel(); renderNight(); });
+    b.addEventListener("click", () => { S.selected = live ? "live" : n.id; renderNight(); });
     box.appendChild(b);
   }
-  const real = cur !== DEMO;
-  $("btnCsv").disabled = !real; $("btnDel").disabled = !real || cur === S.rec;
+  $("btnCsv").disabled = cur === DEMO; $("btnDel").disabled = cur === DEMO || cur === S.rec;
 }
-
-/* ---------- Bluetooth ---------- */
-function showErr(msg) { const e = $("err"); e.textContent = msg || ""; e.hidden = !msg; }
-function setConn(state) {
-  const p = $("connPill");
-  p.className = "pill" + (state === "ok" ? " ok" : state === "retry" ? " warn" : "");
-  p.textContent = state === "ok" ? "Verbonden" : state === "retry" ? "Opnieuw verbinden…" : state === "busy" ? "Verbinden…" : "Niet verbonden";
-  S.connected = state === "ok";
-  $("btnConnect").textContent = S.wantConn ? "Verbinding verbreken" : "Band verbinden";
-  $("btnConnect").className = S.wantConn ? "" : "primary";
-  $("btnRec").disabled = !S.rec && !S.connected;
-  if (!S.connected) { $("bpm").textContent = "––"; }
-}
-
-async function link() {
-  const server = await S.device.gatt.connect();
-  const svc = await server.getPrimaryService("heart_rate");
-  S.char = await svc.getCharacteristic("heart_rate_measurement");
-  S.char.addEventListener("characteristicvaluechanged", onHr);
-  await S.char.startNotifications();
-  S.retry = 0; setConn("ok"); showErr("");
-  $("devName").textContent = S.device.name || "Hartslagband";
-  try {
-    const b = await (await server.getPrimaryService("battery_service")).getCharacteristic("battery_level");
-    $("devBat").textContent = (await b.readValue()).getUint8(0) + "%";
-  } catch (e) { $("devBat").textContent = "onbekend"; }
-}
-
-async function connect() {
-  showErr("");
-  try {
-    S.device = await navigator.bluetooth.requestDevice({ filters: [{ services: ["heart_rate"] }], optionalServices: ["battery_service"] });
-  } catch (e) {
-    if (e.name !== "NotFoundError") showErr("Zoeken naar de band lukte niet: " + e.message);
-    return;
-  }
-  S.wantConn = true; setConn("busy");
-  S.device.addEventListener("gattserverdisconnected", onDisconnect);
-  try { await link(); }
-  catch (e) { showErr("Verbinden lukte niet. Draag de band (maak bij een borstband de elektroden vochtig) en sluit andere apps die ermee verbonden zijn."); onDisconnect(); }
-}
-
-function onDisconnect() {
-  if (!S.wantConn) { setConn("off"); return; }
-  setConn("retry");
-  const wait = [2, 5, 10, 20, 30][Math.min(S.retry++, 4)] * 1000;
-  setTimeout(async () => {
-    if (!S.wantConn || S.connected) return;
-    try { await link(); } catch (e) { onDisconnect(); }
-  }, wait);
-}
-
-function disconnect() {
-  S.wantConn = false;
-  try { if (S.device && S.device.gatt.connected) S.device.gatt.disconnect(); } catch (e) {}
-  setConn("off");
-}
-
-function onHr(ev) {
-  const v = ev.target.value, flags = v.getUint8(0);
-  let i = 1, hr;
-  if (flags & 1) { hr = v.getUint16(i, true); i += 2; } else { hr = v.getUint8(i); i += 1; }
-  const contactSupported = flags & 4, contact = flags & 2;
-  if (flags & 8) i += 2;                                   // energieverbruik overslaan
-  const rrs = [];
-  if (flags & 16) for (; i + 1 < v.byteLength; i += 2) rrs.push(v.getUint16(i, true) / 1024 * 1000);
-  if (rrs.length) S.hasRR = true;
-  $("devContact").textContent = contactSupported ? (contact ? "goed" : "geen contact") : "niet gemeld";
-  $("devRR").textContent = S.hasRR ? "ja" : "nee";
-  if (!hr || (contactSupported && !contact)) return;       // 0 of geen huidcontact: niet meetellen
-  S.lastHr = hr; S.lastBeatAt = Date.now();
-  $("bpm").textContent = hr; $("dimHr").textContent = hr + " /min";
-  if (S.rec) { roll(Date.now()); S.bucket.hrs.push(hr); for (const r of rrs) S.bucket.rrs.push(r); }
-}
-
-/* ---------- opname ---------- */
-function rmssd(rrs) {
-  const ok = rrs.filter(r => r > 300 && r < 2000); let sum = 0, n = 0;
-  for (let i = 1; i < ok.length; i++) { const d = ok[i] - ok[i - 1]; if (Math.abs(d) < ok[i - 1] * .2) { sum += d * d; n++; } }
-  return n >= 10 ? Math.round(Math.sqrt(sum / n)) : null;
-}
+function closeBucket(b) { const h = b.hrs; return { t: b.t, hr: +mean(h).toFixed(1), lo: Math.min(...h), hi: Math.max(...h), n: h.length, rmssd: rmssd(b.rrs) }; }
 function roll(now) {
-  const t = Math.floor(now / MIN) * MIN;
-  if (S.bucket && S.bucket.t === t) return;
+  const t = Math.floor(now / MIN) * MIN; if (S.bucket && S.bucket.t === t) return;
   const b = S.bucket; S.bucket = { t, hrs: [], rrs: [] };
   if (!b || !b.hrs.length || !S.rec) return;
-  const hrs = b.hrs;
-  S.rec.minutes.push({ t: b.t, hr: +(hrs.reduce((s, h) => s + h, 0) / hrs.length).toFixed(1), lo: Math.min(...hrs), hi: Math.max(...hrs), n: hrs.length, rmssd: rmssd(b.rrs) });
-  if (b.rrs.length) S.rec.hasRR = true;
+  S.rec.minutes.push(closeBucket(b)); if (b.rrs.length) S.rec.hasRR = true;
   if (!save(KEY_ACTIVE, S.rec)) showErr("De opslag van deze browser is vol. Wis oude nachten om ruimte te maken.");
-  if (currentNight() === S.rec && $("dim").hidden) renderNight();
+  if (view === "slaap" && currentNight() === S.rec && $("dim").hidden) renderNight();
 }
-
-async function wake(on) {
-  try {
-    if (on && "wakeLock" in navigator && !S.wakeLock) { S.wakeLock = await navigator.wakeLock.request("screen"); S.wakeLock.addEventListener("release", () => { S.wakeLock = null; }); }
-    if (!on && S.wakeLock) { await S.wakeLock.release(); S.wakeLock = null; }
-  } catch (e) {}
-}
-document.addEventListener("visibilitychange", () => { if (S.rec && document.visibilityState === "visible") wake(true); });
-window.addEventListener("beforeunload", ev => { if (S.rec) { ev.preventDefault(); ev.returnValue = ""; } });
-
-function startRec() {
-  const now = Date.now();
-  S.rec = { id: "n" + now, start: now, end: null, hasRR: false, minutes: [] };
-  S.bucket = null; roll(now); S.selected = "live";
-  save(KEY_ACTIVE, S.rec); wake(true); syncRec(); renderNight();
-}
+function sleepBeat(hr, rrs, now) { if (!S.rec) return; roll(now); S.bucket.hrs.push(hr); for (const r of rrs) S.bucket.rrs.push(r); }
+function startRec() { const now = Date.now(); S.rec = { id: "n" + now, start: now, end: null, hasRR: false, minutes: [] }; S.bucket = null; roll(now); S.selected = "live"; save(KEY_ACTIVE, S.rec); wakeSync(); syncButtons(); renderNight(); }
 function stopRec() {
-  const b = S.bucket;
-  if (b && b.hrs.length) { S.bucket = { t: -1, hrs: [], rrs: [] }; S.rec.minutes.push({ t: b.t, hr: +(b.hrs.reduce((s, h) => s + h, 0) / b.hrs.length).toFixed(1), lo: Math.min(...b.hrs), hi: Math.max(...b.hrs), n: b.hrs.length, rmssd: rmssd(b.rrs) }); }
-  const n = S.rec; n.end = Date.now(); S.rec = null; S.bucket = null;
+  const b = S.bucket, n = S.rec; if (b && b.hrs.length) n.minutes.push(closeBucket(b));
+  n.end = Date.now(); S.rec = null; S.bucket = null;
   if (n.minutes.length) { S.nights.unshift(n); S.selected = n.id; if (!save(KEY_NIGHTS, S.nights)) showErr("Opslaan lukte niet: de opslag van deze browser is vol."); }
   else { S.selected = null; showErr("Er is geen hartslag ontvangen, dus deze opname is niet bewaard."); }
-  save(KEY_ACTIVE, null); wake(false); syncRec(); renderNight();
+  save(KEY_ACTIVE, null); wakeSync(); syncButtons(); renderNight();
 }
-function syncRec() {
-  const on = !!S.rec;
-  $("recPill").hidden = !on; $("btnDim").disabled = !on;
-  $("btnRec").textContent = on ? "Nacht stoppen en bewaren" : "Nacht starten";
-  $("btnRec").className = on ? "stop" : "";
-  $("btnRec").disabled = !on && !S.connected;
-  if (!on) $("recDur").textContent = "–";
-}
-
-/* ---------- knoppen ---------- */
-$("btnConnect").addEventListener("click", () => S.wantConn ? disconnect() : connect());
 $("btnRec").addEventListener("click", () => S.rec ? stopRec() : startRec());
 $("btnDim").addEventListener("click", () => { $("dim").hidden = false; tick(); });
 $("dim").addEventListener("click", () => { $("dim").hidden = true; renderNight(); });
-
-function disarmDel() { S.delArmed = false; $("btnDel").textContent = "Deze nacht wissen"; }
-$("btnDel").addEventListener("click", () => {
-  const n = currentNight(); if (n === DEMO || n === S.rec) return;
-  if (!S.delArmed) { S.delArmed = true; $("btnDel").textContent = "Zeker weten? Klik nog eens"; setTimeout(disarmDel, 4000); return; }
-  S.nights = S.nights.filter(x => x !== n); save(KEY_NIGHTS, S.nights); S.selected = null; disarmDel(); renderNight();
-});
+twoClick($("btnDel"), "Deze nacht wissen", () => { const n = currentNight(); if (n === DEMO || n === S.rec) return; S.nights = S.nights.filter(x => x !== n); save(KEY_NIGHTS, S.nights); S.selected = null; renderNight(); });
 $("btnCsv").addEventListener("click", () => {
-  const n = currentNight(), a = analyse(n);
-  const rows = ["tijd;hartslag_gem;hartslag_min;hartslag_max;rmssd_ms;fase"];
-  for (const m of n.minutes) {
-    const e = a.epochs.find(e => m.t >= e.t && m.t < e.t + EPOCH), d = new Date(m.t);
-    rows.push([`${d.getFullYear()}-${p2(d.getMonth() + 1)}-${p2(d.getDate())} ${hm(m.t)}`, String(m.hr).replace(".", ","), m.lo, m.hi, m.rmssd ?? "", e ? STAGE[e.stage][1] : ""].join(";"));
-  }
-  const url = URL.createObjectURL(new Blob(["﻿" + rows.join("\r\n")], { type: "text/csv" }));
-  const el = document.createElement("a"), d = new Date(n.start);
-  el.href = url; el.download = `nacht-${d.getFullYear()}-${p2(d.getMonth() + 1)}-${p2(d.getDate())}.csv`;
-  document.body.appendChild(el); el.click(); el.remove(); setTimeout(() => URL.revokeObjectURL(url), 2000);
+  const n = currentNight(), a = analyse(n), rows = ["tijd;hartslag_gem;hartslag_min;hartslag_max;rmssd_ms;fase"], d0 = new Date(n.start);
+  const ymd = d => `${d.getFullYear()}-${p2(d.getMonth() + 1)}-${p2(d.getDate())}`;
+  for (const m of n.minutes) { const e = a.epochs.find(e => m.t >= e.t && m.t < e.t + EPOCH);
+    rows.push([ymd(new Date(m.t)) + " " + hm(m.t), String(m.hr).replace(".", ","), m.lo, m.hi, m.rmssd ?? "", e ? STAGE[e.stage][1] : ""].join(";")); }
+  const url = URL.createObjectURL(new Blob(["﻿" + rows.join("\r\n")], { type: "text/csv" })), el = document.createElement("a");
+  el.href = url; el.download = `nacht-${ymd(d0)}.csv`; document.body.appendChild(el); el.click(); el.remove(); setTimeout(() => URL.revokeObjectURL(url), 2000);
 });
 
-/* ---------- klok ---------- */
-function tick() {
-  const now = Date.now();
-  $("dimClock").textContent = hm(now);
-  if (S.rec) {
-    roll(now);
-    $("recDur").textContent = dur((now - S.rec.start) / MIN);
-    if (S.connected && now - S.lastBeatAt > 20000) { $("bpm").textContent = "––"; $("dimHr").textContent = "geen signaal"; }
+/* ====== STRESS ====== */
+const ST = { base: load(KEY_BASE, null), cal: null, ses: null, score: null, hr: null, hrv: null, sessions: load(KEY_STRESS, []), sel: null, tenseSince: null, lastPt: 0 };
+const zone = s => s < 35 ? ["Rustig", "--ok"] : s < 65 ? ["Alert", "--lamp"] : ["Gespannen", "--bad"];
+function demoSession() {
+  const rnd = rng(77), d = new Date(); d.setDate(d.getDate() - 1); d.setHours(14, 5, 0, 0); const series = [];
+  for (let m = 0; m < 80; m++) series.push(Math.round(clamp(24 + m * .25 + 26 * Math.exp(-((m - 52) ** 2) / 90) + 12 * Math.sin(m / 7) + (rnd() - .5) * 9 - (m > 62 ? (m - 62) * 1.6 : 0), 3, 97)));
+  return summarise({ id: "demo", demo: true, start: d.getTime(), end: d.getTime() + 80 * MIN, series });
+}
+function summarise(s) { s.avg = Math.round(mean(s.series)); s.peak = Math.max(...s.series); s.tense = Math.round(s.series.filter(v => v >= 65).length / s.series.length * 100); return s; }
+const ST_DEMO = demoSession();
+
+function stressBeat(hr, rrs, now) {
+  if (ST.cal) {
+    ST.cal.hrs.push(hr); for (const r of rrs) ST.cal.rrs.push(r);
+    if (now - ST.cal.t0 >= 90000) {
+      if (ST.cal.hrs.length >= 30) { ST.base = { hr: Math.round(mean(ST.cal.hrs)), rmssd: rmssd(ST.cal.rrs, 30), at: now }; save(KEY_BASE, ST.base); ST.score = null; }
+      else showErr("De rustmeting kreeg te weinig hartslagen binnen. Controleer of de band goed zit en probeer het opnieuw.");
+      ST.cal = null; wakeSync(); syncButtons();
+    }
+  }
+  const w = Band.recent.filter(b => now - b.t < 60000);
+  ST.hr = w.length ? Math.round(mean(w.map(b => b.hr))) : null;
+  ST.hrv = rmssd(Band.rr.filter(b => now - b.t < 60000).map(b => b.rr), 20);
+  if (ST.base && !ST.cal && w.length >= 10) {
+    const hp = clamp((ST.hr - ST.base.hr) / 22, 0, 1);
+    const raw = (ST.hrv != null && ST.base.rmssd) ? 50 * hp + 50 * clamp(1 - ST.hrv / ST.base.rmssd, 0, 1) : 100 * hp;
+    ST.score = ST.score == null ? raw : ST.score + .08 * (raw - ST.score);
+    ST.tenseSince = ST.score >= 65 ? (ST.tenseSince || now) : null;
+    if (ST.ses && now - ST.lastPt >= 10000) { ST.lastPt = now; ST.ses.pts.push({ t: now, s: Math.round(ST.score) }); if (view === "stress") renderStress(); }
+  }
+  if (view === "stress") stressLive();
+}
+function stressLive() {
+  const s = ST.score, now = Date.now(), dot = $("stDot");
+  if (s == null || !Band.connected) { $("stScore").textContent = "–"; $("stZone").textContent = ST.cal ? "Rustmeting bezig" : "Nog geen meting"; $("stZone").style.color = ""; dot.setAttribute("opacity", "0"); }
+  else { const [name, col] = zone(s), a = Math.PI * s / 100;
+    $("stScore").textContent = Math.round(s); $("stZone").textContent = name; $("stZone").style.color = `var(${col})`;
+    dot.setAttribute("cx", 110 - 90 * Math.cos(a)); dot.setAttribute("cy", 112 - 90 * Math.sin(a)); dot.setAttribute("opacity", "1"); }
+  $("stHr").textContent = ST.hr && Band.connected ? ST.hr + " /min" : "–";
+  $("stHrv").textContent = ST.hrv && Band.connected ? ST.hrv + " ms" : "–";
+  $("stBaseHr").textContent = ST.base ? ST.base.hr + " /min" : "nog niet gemeten";
+  $("stBaseHrv").textContent = ST.base ? (ST.base.rmssd ? ST.base.rmssd + " ms" : "geen gegevens") : "–";
+  $("stDur").textContent = ST.ses ? ms((now - ST.ses.start) / 1000) : "–";
+  $("stMsg").textContent = ST.cal ? `Rustmeting: nog ${Math.max(0, Math.ceil(90 - (now - ST.cal.t0) / 1000))} s. Zit stil en adem rustig.`
+    : !Band.connected ? "Verbind eerst de band met de knop bovenaan."
+    : !ST.base ? "Doe eerst een rustmeting van 90 seconden, zodat de meter weet wat voor jou rustig is."
+    : "Rustmeting van " + dayName(ST.base.at) + ". Doe hem opnieuw als de score niet klopt met hoe je je voelt.";
+  $("stPause").hidden = !(ST.ses && ST.tenseSince && now - ST.tenseSince > 5 * MIN);
+}
+function stressShown() {
+  if (ST.ses) return { live: true, start: ST.ses.start, end: Date.now(), pts: ST.ses.pts };
+  const s = ST.sessions.find(x => x.id === ST.sel) || ST.sessions[0] || ST_DEMO;
+  return { ses: s, start: s.start, end: s.end, pts: s.series.map((v, i) => ({ t: s.start + (i + .5) * MIN, s: v })) };
+}
+function renderStress() {
+  stressLive();
+  const sh = stressShown(), vals = sh.pts.map(p => p.s);
+  $("stTitle").textContent = sh.live ? "Deze sessie (loopt nog)" : "Sessie van " + dayName(sh.start);
+  $("stWhen").textContent = hm(sh.start) + " – " + hm(sh.end); $("stTag").hidden = !(sh.ses && sh.ses.demo);
+  $("stTiles").innerHTML = vals.length
+    ? tile("Gemiddeld", Math.round(mean(vals)), zone(mean(vals))[0].toLowerCase()) + tile("Piek", Math.max(...vals), "") +
+      tile("Tijd gespannen", Math.round(vals.filter(v => v >= 65).length / vals.length * 100) + "<small>%</small>", "score 65 of hoger") + tile("Duur", dur((sh.end - sh.start) / MIN), "")
+    : tile("Gemiddeld", "–", "de eerste punten komen na 10 seconden");
+  drawStress(sh);
+  const box = $("stList"); box.textContent = ""; $("stEmpty").hidden = ST.sessions.length > 0;
+  for (const s of ST.sessions) {
+    const b = document.createElement("button"); b.className = "item"; b.type = "button"; if (sh.ses === s) b.setAttribute("aria-current", "true");
+    b.innerHTML = `<span><span class="d"></span><br><span class="m num"></span></span><span class="num"></span><span class="num m"></span>`;
+    b.querySelector(".d").textContent = dayName(s.start); b.querySelector(".m").textContent = hm(s.start) + " – " + hm(s.end);
+    b.children[1].textContent = "gem. " + s.avg; b.children[2].textContent = "piek " + s.peak;
+    b.addEventListener("click", () => { ST.sel = s.id; renderStress(); }); box.appendChild(b);
   }
 }
-setInterval(tick, 5000);
+function drawStress(sh) {
+  const box = $("stChart"), W = Math.max(300, box.clientWidth || 700), H = 210, L = 30, R = 10, T = 10, B = 24;
+  const t0 = sh.start, t1 = Math.max(sh.end, t0 + 10 * MIN), x = t => L + (t - t0) / (t1 - t0) * (W - L - R), y = v => T + (100 - v) / 100 * (H - T - B);
+  let s = `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="Stressscore tijdens de sessie">`;
+  for (const [a, b, c] of [[0, 35, "--ok"], [35, 65, "--lamp"], [65, 100, "--bad"]]) s += `<rect x="${L}" y="${y(b)}" width="${W - L - R}" height="${y(a) - y(b)}" fill="${css(c)}" opacity=".07"/>`;
+  for (const v of [0, 35, 65, 100]) s += `<line x1="${L}" x2="${W - R}" y1="${y(v)}" y2="${y(v)}" stroke="${css("--line")}"/>` + axisText(L - 6, y(v) + 4, v, "end");
+  const span = (t1 - t0) / MIN, step = [5, 10, 15, 30, 60, 120].find(q => span / q <= Math.max(3, (W - L - R) / 70)) || 120;
+  for (let t = Math.ceil(t0 / (step * MIN)) * step * MIN; t < t1; t += step * MIN) if (x(t) > L + 16 && x(t) < W - R - 16) s += `<line x1="${x(t)}" x2="${x(t)}" y1="${T}" y2="${H - B}" stroke="${css("--line")}" stroke-dasharray="2 4"/>` + axisText(x(t), H - 6, hm(t), "middle");
+  if (sh.pts.length > 1) s += `<path d="M${sh.pts.map(p => x(p.t).toFixed(1) + "," + y(p.s).toFixed(1)).join(" L")}" fill="none" stroke="${css("--text")}" stroke-width="1.8" stroke-linejoin="round"/>`;
+  if (sh.pts.length) { const p = sh.pts[sh.pts.length - 1]; s += `<circle cx="${x(p.t)}" cy="${y(p.s)}" r="4.5" fill="${css(zone(p.s)[1])}" stroke="${css("--bg")}" stroke-width="2"/>`; }
+  box.innerHTML = s + "</svg>";
+}
+$("btnCal").addEventListener("click", () => { ST.cal = { t0: Date.now(), hrs: [], rrs: [] }; showErr(""); wakeSync(); syncButtons(); stressLive(); });
+$("btnSes").addEventListener("click", () => {
+  if (!ST.ses) { ST.ses = { start: Date.now(), pts: [] }; ST.lastPt = 0; ST.tenseSince = null; }
+  else {
+    const se = ST.ses; ST.ses = null;
+    if (se.pts.length >= 6) { const by = new Map(); for (const p of se.pts) { const k = Math.floor((p.t - se.start) / MIN); if (!by.has(k)) by.set(k, []); by.get(k).push(p.s); }
+      const n = summarise({ id: "s" + se.start, start: se.start, end: Date.now(), series: [...by.keys()].sort((a, b) => a - b).map(k => Math.round(mean(by.get(k)))) });
+      ST.sessions.unshift(n); ST.sessions = ST.sessions.slice(0, 60); ST.sel = n.id; save(KEY_STRESS, ST.sessions); }
+    else showErr("De sessie duurde korter dan een minuut en is niet bewaard.");
+  }
+  wakeSync(); syncButtons(); renderStress(); renderStart();
+});
+twoClick($("btnStClear"), "Geschiedenis wissen", () => { ST.sessions = []; ST.sel = null; save(KEY_STRESS, null); renderStress(); renderStart(); });
 
-let rz; window.addEventListener("resize", () => { clearTimeout(rz); rz = setTimeout(renderNight, 150); });
+/* ====== VERLEIDING (niets wordt opgeslagen) ====== */
+const FL = { players: [{ name: "Speler 1", best: null }, { name: "Speler 2", best: null }], cur: 0, phase: "idle", base: null, t0: 0, rest: [], peak: 0, peakHr: 0, target: 0, level: 0, limit: 180, last: null,
+  ph: 0, rings: [], parts: [], lastFrame: 0, raf: 0 };
+const FL_LABELS = [[15, "IJskoud"], [35, "Lauw"], [55, "Warm"], [75, "Heet"], [95, "Gloeiend"], [101, "Kookpunt"]];
+const reduced = typeof matchMedia === "function" && matchMedia("(prefers-reduced-motion: reduce)").matches;
+function flirtBeat(hr, now) {
+  if (FL.phase === "rest") { FL.rest.push(hr); if (now - FL.t0 >= 20000 && FL.rest.length >= 5) { FL.base = mean(FL.rest); FL.phase = "live"; FL.t0 = now; FL.peak = 0; FL.peakHr = hr; } }
+  else if (FL.phase === "live") { FL.target = clamp((hr - FL.base) / 40, 0, 1) * 100; if (FL.target > FL.peak) { FL.peak = FL.target; FL.peakHr = hr; } }
+}
+function flirtFinish() {
+  const p = FL.players[FL.cur], res = { peak: Math.round(FL.peak), hr: FL.peakHr, rise: Math.round(FL.peakHr - FL.base) };
+  if (!p.best || res.peak > p.best.peak || (res.peak === p.best.peak && res.rise > p.best.rise)) p.best = res;
+  FL.last = { name: p.name, ...res }; FL.phase = "done"; FL.target = 0; FL.cur = 1 - FL.cur;
+  wakeSync(); syncButtons(); renderBoard();
+}
+function flirtTick(now) {
+  if (FL.phase === "live" && FL.limit && now - FL.t0 >= FL.limit * 1000) flirtFinish();
+  if ((FL.phase === "rest" || FL.phase === "live") && !Band.want) { FL.phase = "idle"; FL.target = 0; wakeSync(); syncButtons(); }
+}
+function renderBoard() {
+  const box = $("board"); box.textContent = "";
+  const b0 = FL.players[0].best, b1 = FL.players[1].best, lead = b0 && b1 ? (b0.peak === b1.peak ? (b0.rise === b1.rise ? -1 : b0.rise > b1.rise ? 0 : 1) : b0.peak > b1.peak ? 0 : 1) : -1;
+  FL.players.forEach((p, i) => {
+    const d = document.createElement("div"); d.className = "player" + (i === FL.cur ? " cur" : "");
+    d.innerHTML = `<div class="row between"><span class="nm"></span><span class="tag" ${i === lead ? "" : "hidden"}>Voorop</span></div><div class="pk"></div><div class="note"></div>`;
+    d.querySelector(".nm").textContent = p.name;
+    d.querySelector(".pk").textContent = p.best ? p.best.peak + "%" : "–";
+    d.querySelector(".note").textContent = (p.best ? `+${p.best.rise} slagen, tot ${p.best.hr} /min. ` : "Nog geen ronde. ") + (i === FL.cur ? "Draagt nu de band." : "");
+    box.appendChild(d);
+    $("w" + i).textContent = p.name; $("w" + i).setAttribute("aria-pressed", String(i === FL.cur));
+  });
+}
+[0, 1].forEach(i => {
+  $("p" + i).addEventListener("input", ev => { FL.players[i].name = ev.target.value.trim() || "Speler " + (i + 1); renderBoard(); });
+  $("w" + i).addEventListener("click", () => { if (FL.phase === "rest" || FL.phase === "live") return; FL.cur = i; renderBoard(); });
+});
+$("flLen").addEventListener("change", ev => { FL.limit = +ev.target.value; });
+$("btnFl").addEventListener("click", () => {
+  if (FL.phase === "rest") { FL.phase = "idle"; FL.target = 0; }
+  else if (FL.phase === "live") { flirtFinish(); return; }
+  else { FL.phase = "rest"; FL.t0 = Date.now(); FL.rest = []; FL.target = 0; FL.last = null; }
+  wakeSync(); syncButtons(); renderBoard();
+});
+twoClick($("btnFlClear"), "Scores wissen", () => { FL.players.forEach(p => p.best = null); FL.last = null; if (FL.phase === "done") FL.phase = "idle"; renderBoard(); });
+$("btnFull").addEventListener("click", async () => { try { if (document.fullscreenElement) await document.exitFullscreen(); else await $("stage").requestFullscreen(); } catch (e) { $("btnFull").textContent = "Volledig scherm werkt hier niet"; } });
 
-if (!navigator.bluetooth) { $("nosupport").hidden = false; $("btnConnect").disabled = true; }
-syncRec(); renderNight();
+function heartPath(c, cx, cy, s) { c.beginPath(); for (let t = 0; t <= Math.PI * 2 + .05; t += .12) { const x = 16 * Math.sin(t) ** 3, y = -(13 * Math.cos(t) - 5 * Math.cos(2 * t) - 2 * Math.cos(3 * t) - Math.cos(4 * t)); c.lineTo(cx + x * s / 16, cy + y * s / 16); } c.closePath(); }
+function flirtFrame(ts) {
+  FL.raf = requestAnimationFrame(flirtFrame);
+  const cv = $("cv"), dpr = Math.min(2, window.devicePixelRatio || 1), w = cv.clientWidth, h = cv.clientHeight; if (!w || !h) return;
+  if (cv.width !== Math.round(w * dpr)) { cv.width = Math.round(w * dpr); cv.height = Math.round(h * dpr); }
+  const c = cv.getContext("2d"), dt = Math.min(.1, (ts - (FL.lastFrame || ts)) / 1000); FL.lastFrame = ts; c.setTransform(dpr, 0, 0, dpr, 0, 0);
+  const now = Date.now(); flirtTick(now);
+  FL.level += (FL.target - FL.level) * Math.min(1, dt * 1.6);
+  const L = FL.level, k = L / 100, hr = Band.hr || 56, hue = 232 + 120 * k, boil = L >= 95;
+  /* achtergrond: van koel blauw naar gloeiend rood */
+  const cx = w / 2, cy = h * .4, g = c.createRadialGradient(cx, cy, 10, cx, cy, Math.max(w, h) * .8);
+  g.addColorStop(0, `hsl(${hue} ${48 + 30 * k}% ${20 + 14 * k}%)`); g.addColorStop(1, `hsl(${hue - 14} ${40 + 25 * k}% ${7 + 5 * k}%)`);
+  c.fillStyle = g; c.fillRect(0, 0, w, h);
+  /* hartslagritme */
+  const before = Math.floor(FL.ph); FL.ph += dt * hr / 60; const p = FL.ph % 1, size = Math.min(w, h) * (.17 + .05 * k);
+  if (Math.floor(FL.ph) !== before) {
+    FL.rings.push({ r: size * 1.1, a: .5 });
+    if (!reduced) for (let i = 0, n = Math.floor(L / 18) + (boil ? 5 : 0); i < n; i++) FL.parts.push({ x: cx + (Math.random() - .5) * size * 2, y: cy + size * .3, vx: (Math.random() - .5) * 60, vy: -(50 + Math.random() * 90 + L), s: 6 + Math.random() * 10, life: 1, spark: boil && Math.random() < .5 });
+  }
+  const pulse = reduced ? 1 : 1 + (.10 + .08 * k) * Math.exp(-p * 7) + .05 * Math.exp(-((p - .3) ** 2) / .004);
+  const shake = boil && !reduced ? 3 : 0, sx = cx + (Math.random() - .5) * shake, sy = cy + (Math.random() - .5) * shake;
+  for (const r of FL.rings) { r.r += dt * size * 1.5; r.a -= dt * .55; c.strokeStyle = `hsla(${hue + 10} 90% 75% / ${Math.max(0, r.a)})`; c.lineWidth = 2; c.beginPath(); c.arc(cx, cy, r.r, 0, Math.PI * 2); c.stroke(); }
+  FL.rings = FL.rings.filter(r => r.a > 0);
+  /* meterring met piekstreepje */
+  const R = size * 1.85, a0 = -Math.PI / 2; c.lineCap = "round"; c.lineWidth = 8;
+  c.strokeStyle = "rgba(255,255,255,.09)"; c.beginPath(); c.arc(cx, cy, R, 0, Math.PI * 2); c.stroke();
+  if (L > .5) { c.strokeStyle = `hsl(${340 + 30 * k} 95% ${62 + 8 * k}%)`; c.beginPath(); c.arc(cx, cy, R, a0, a0 + Math.PI * 2 * k); c.stroke(); }
+  if (FL.phase === "live" && FL.peak > 1) { const pa = a0 + Math.PI * 2 * FL.peak / 100; c.strokeStyle = "#fff"; c.lineWidth = 3; c.beginPath(); c.moveTo(cx + Math.cos(pa) * (R - 9), cy + Math.sin(pa) * (R - 9)); c.lineTo(cx + Math.cos(pa) * (R + 9), cy + Math.sin(pa) * (R + 9)); c.stroke(); }
+  /* hart */
+  c.save(); c.shadowColor = `hsl(${345 + 20 * k} 100% 60%)`; c.shadowBlur = 18 + L * .7;
+  const hg = c.createLinearGradient(sx, sy - size, sx, sy + size); hg.addColorStop(0, `hsl(${348 + 14 * k} ${70 + 25 * k}% ${58 + 8 * k}%)`); hg.addColorStop(1, `hsl(${335 + 14 * k} ${70 + 20 * k}% ${40 + 6 * k}%)`);
+  c.fillStyle = hg; heartPath(c, sx, sy, size * pulse); c.fill(); c.restore();
+  /* zwevende hartjes en vonken */
+  for (const q of FL.parts) { q.x += q.vx * dt; q.y += q.vy * dt; q.life -= dt * .5; c.globalAlpha = Math.max(0, q.life);
+    if (q.spark) { c.fillStyle = "#ffd9a0"; c.beginPath(); c.arc(q.x, q.y, 2.2, 0, Math.PI * 2); c.fill(); } else { c.fillStyle = `hsl(${340 + 25 * k} 95% 72%)`; heartPath(c, q.x, q.y, q.s); c.fill(); } }
+  c.globalAlpha = 1; FL.parts = FL.parts.filter(q => q.life > 0).slice(-160);
+  /* tekst */
+  const who = FL.players[FL.cur].name;
+  $("flPct").textContent = Math.round(L) + "%"; $("flLabel").textContent = FL_LABELS.find(l => L < l[0])[1];
+  $("flWho").textContent = FL.phase === "done" ? "" : who;
+  $("flTimer").textContent = (Band.hr ? Band.hr + " /min" : "") + (FL.phase === "live" ? "  ·  " + (FL.limit ? ms(FL.limit - (now - FL.t0) / 1000) : ms((now - FL.t0) / 1000)) : "");
+  $("flMsg").textContent = !Band.connected ? "Verbind de band om te beginnen."
+    : FL.phase === "rest" ? `Rustmeting: nog ${Math.max(0, Math.ceil(20 - (now - FL.t0) / 1000))} s. Blijf stil liggen en handen thuis.`
+    : FL.phase === "live" ? `Piek tot nu toe ${Math.round(FL.peak)}%`
+    : FL.phase === "done" && FL.last ? `${FL.last.name} kwam tot ${FL.last.peak}% (+${FL.last.rise} slagen). Geef de band door aan ${who}.`
+    : `${who} draagt de band. Start een ronde als jullie klaar zijn.`;
+}
+
+/* ====== START, NAVIGATIE, KLOK ====== */
+function renderStart() {
+  const n = S.nights[0], a = n ? analyse(n) : null;
+  $("cSleep").textContent = S.rec ? "Opname loopt sinds " + hm(S.rec.start) + "." : n ? "Laatste nacht: " + (a.enough && a.sleepMin ? dur(a.sleepMin) + " slaap" : "te kort voor een schatting") + ", " + dayName(n.start) + "." : "Nog geen nachten opgenomen.";
+  const s = ST.sessions[0];
+  $("cStress").textContent = ST.ses ? "Sessie loopt sinds " + hm(ST.ses.start) + "." : s ? "Laatste sessie: gemiddeld " + s.avg + ", piek " + s.peak + "." : ST.base ? "Rustmeting gedaan. Klaar voor je eerste sessie." : "Begin met een rustmeting van 90 seconden.";
+}
+const VIEWS = ["start", "slaap", "stress", "verleiding"]; let view = "start";
+function route() {
+  const v = location.hash.slice(1); view = VIEWS.includes(v) ? v : "start";
+  for (const n of VIEWS) $("v-" + n).hidden = n !== view;
+  document.querySelectorAll("nav a").forEach(a => { if (a.getAttribute("href") === "#" + view) a.setAttribute("aria-current", "page"); else a.removeAttribute("aria-current"); });
+  cancelAnimationFrame(FL.raf); FL.lastFrame = 0;
+  if (view === "start") renderStart(); else if (view === "slaap") renderNight(); else if (view === "stress") renderStress(); else { renderBoard(); FL.raf = requestAnimationFrame(flirtFrame); }
+}
+function tick() {
+  const now = Date.now(); $("dimClock").textContent = hm(now);
+  if (S.rec) { roll(now); $("recDur").textContent = dur((now - S.rec.start) / MIN); }
+  if (Band.connected && Band.hr && now - Band.lastAt > 20000) { $("bpm").textContent = "––"; $("dimHr").textContent = "geen signaal"; Band.hr = null; }
+  flirtTick(now); if (view === "stress") stressLive();
+}
+let started = false;
+function init() {
+  if (started) return; started = true;
+  if (!navigator.bluetooth) { $("nosupport").hidden = false; $("btnConnect").disabled = true; }
+  window.addEventListener("hashchange", route);
+  let rz; window.addEventListener("resize", () => { clearTimeout(rz); rz = setTimeout(() => { if (view === "slaap") renderNight(); if (view === "stress") renderStress(); }, 150); });
+  setInterval(tick, 1000); syncButtons(); route();
+}
+if (load(KEY_LOCK, null) === PASS_HASH) unlock();
 </script>
 </body>
 </html>
